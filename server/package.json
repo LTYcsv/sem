@@ -1,0 +1,1 @@
+{"name":"@sem/server","private":true,"version":"1.0.0","type":"module","dependencies":{"@fastify/static":"^10.1.5","better-sqlite3":"^13.0.3","fastify":"^5.12.5","fflate":"^0.8.3","playwright":"^1.63.0","qrcode":"^1.5.4","socket.io":"^4.8.4"},"devDependencies":{"@types/better-sqlite3":"^9.6.0","@types/qrcode":"^1.5.6"}}

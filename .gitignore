@@ -1,0 +1,7 @@
+node_modules/
+.venv-tools/
+web/dist/
+*.sqlite
+*.sqlite-*
+.env
+out/

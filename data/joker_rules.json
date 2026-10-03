@@ -1,0 +1,23 @@
+{
+  "_comment": "Формальная запись правил джокеров. В xlsx (лист «Джокеры», колонка F) правила записаны свободным текстом, поэтому игра читает их отсюда. Скрипт npm run data проверяет, что каждое число здесь встречается в тексте xlsx (описание или колонка F), и предупреждает о расхождениях. Семантика: docs/RULES.md.",
+  "negative": {
+    "J-1": { "rules": [ { "all": ["M3"], "cost": 8 }, { "all": ["M13"], "cost": 15 }, { "all": ["M3", "M13"], "cost": 5 } ] },
+    "J-2": { "rules": [ { "all": ["M4"], "cost": 5 }, { "all": ["M10"], "none": ["M4"], "cost": 20 } ] },
+    "J-3": { "rules": [ { "all": ["M5"], "cost": 7 }, { "all": ["M14"], "cost": 10 }, { "all": ["M5", "M14"], "cost": 5 } ] },
+    "J-4": { "rules": [ { "all": ["M2"], "delta": -10 }, { "all": ["M7"], "delta": -10 }, { "all": ["M2", "M7"], "cost": 10 } ] },
+    "J-5": { "rules": [ { "all": ["M1"], "cost": 7 }, { "all": ["M16"], "cost": 15 } ] },
+    "J-6": { "rules": [ { "all": ["M9"], "cost": 10 }, { "all": ["M14"], "cost": 8 }, { "all": ["M9", "M14"], "cost": 5 } ] },
+    "J-7": { "rules": [] },
+    "J-8": { "rules": [ { "all": ["M13"], "cost": 12 }, { "all": ["M15"], "cost": 10 }, { "all": ["M7"], "cost": 10 }, { "all": ["M13", "M15"], "cost": 7 }, { "all": ["M13", "M7"], "cost": 7 } ] }
+  },
+  "positive": {
+    "J+1": { "kind": "pay", "cost": 20, "rules": [ { "all": ["M7"], "cost": 10 } ] },
+    "J+2": { "kind": "grant", "ownCost": 10, "grant": 25, "eligible": ["M1", "M3", "M8", "M9", "M13", "M15", "M16"] },
+    "J+3": { "kind": "laterDiscount", "any": ["M8", "M12"], "discount": 8 },
+    "J+4": { "kind": "pay", "cost": 12, "rules": [ { "any": ["M5", "M9", "M10"], "cost": 0 } ] },
+    "J+5": { "kind": "partner", "measure": "M14", "discount": 10, "launchCost": 20 },
+    "J+6": { "kind": "pay", "cost": 15, "rules": [ { "all": ["M12"], "cost": 0 } ] },
+    "J+7": { "kind": "laterDiscount", "any": ["M13", "M15"], "discount": 8 },
+    "J0": { "kind": "none" }
+  }
+}
