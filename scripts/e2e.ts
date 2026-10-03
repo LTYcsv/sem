@@ -183,6 +183,7 @@ async function main() {
   for (const [i, t] of teams.entries()) {
     const s = t.state!;
     const negEntry = s.balance!.ledger.find((l) => l.stage === 'neg');
+    check(!JSON.stringify(s).includes('уточнить'), `команда ${i + 1}: служебные пометки xlsx скрыты`);
     check(s.balance!.reserve === 100 - s.balance!.spent && negEntry?.amount === -s.negJoker!.cost, `команда ${i + 1}: ${s.negJoker!.code} — ${s.negJoker!.explanation}; резерв ${s.balance!.reserve}`);
   }
 

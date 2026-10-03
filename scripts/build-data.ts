@@ -232,8 +232,12 @@ for (let r = hJ.row + 1; r <= wsJ.rowCount; r++) {
   const basketText = norm(text(wsJ.getCell(r, hJ.col('Корзина'))));
   const name = text(wsJ.getCell(r, hJ.col('Название')));
   const description = text(wsJ.getCell(r, hJ.col('Описание')));
-  const ruleText = text(wsJ.getCell(r, hJ.col('Как подготовка')));
-  const allText = `${description} ${ruleText}`;
+  const ruleRaw = text(wsJ.getCell(r, hJ.col('Как подготовка')));
+  // Служебные пометки разработчика в скобках («уточнить», «понимаем так») командам не показываем
+  const noteRe = /\s*\(([^()]*(?:уточнить|онимаем|исходных данных)[^()]*)\)/g;
+  const designerNote = [...ruleRaw.matchAll(noteRe)].map((m) => m[1]).join(' ');
+  const ruleText = ruleRaw.replace(noteRe, '').trim();
+  const allText = `${description} ${ruleRaw}`;
   const nums = numbersIn(allText);
   const check = (rule: unknown) => {
     for (const n of ruleNumbers(rule)) if (n !== 0 && !nums.has(n))
@@ -244,7 +248,7 @@ for (let r = hJ.row + 1; r <= wsJ.rowCount; r++) {
     if (!rule) throw new Error(`Нет формального правила для ${code} в data/joker_rules.json`);
     check(rule);
     const baseCost = num(wsJ.getCell(r, hJ.col('Базовая стоимость')), `${code} стоимость`);
-    jokers.push({ code, basket: 'negative', name, description, ruleText, baseCost, rules: rule.rules as CostRule[] });
+    jokers.push({ code, basket: 'negative', name, description, ruleText, ...(designerNote ? { designerNote } : {}), baseCost, rules: rule.rules as CostRule[] });
   } else {
     const rule = jokerRules.positive[code] as PositiveRule | undefined;
     if (!rule) throw new Error(`Нет формального правила для ${code} в data/joker_rules.json`);
@@ -255,7 +259,7 @@ for (let r = hJ.row + 1; r <= wsJ.rowCount; r++) {
     markYellow(wsJ, valCell, `${code}: размер бонуса`);
     const ind = INDICATOR_LABELS[norm(text(indCell))];
     const val = typeof raw(valCell) === 'number' ? (raw(valCell) as number) : 0;
-    jokers.push({ code, basket: 'positive', name, description, ruleText, bonus: ind && val ? { indicator: ind, value: val } : null, rule });
+    jokers.push({ code, basket: 'positive', name, description, ruleText, ...(designerNote ? { designerNote } : {}), bonus: ind && val ? { indicator: ind, value: val } : null, rule });
   }
 }
 for (const basket of ['negative', 'positive'] as const)

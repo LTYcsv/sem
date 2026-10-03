@@ -72,6 +72,8 @@ interface JokerBase {
   name: string;
   description: string;
   ruleText: string;
+  /** Пометка разработчика из xlsx (только для ведущих). */
+  designerNote?: string;
 }
 export interface NegativeJoker extends JokerBase {
   basket: 'negative';
