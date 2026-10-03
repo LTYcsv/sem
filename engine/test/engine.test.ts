@@ -257,20 +257,20 @@ describe('снятие мер в корректировке (правила 03.1
     const nd = loaded.cities.find((c) => c.name === 'Новая долина')!;
     expect([nd.start.adapt, nd.start.human]).toEqual([7, 7]);
   });
-  it('в данных: минимум 2 полные, возврат 80%, эффект снятой меры 50%', () => {
+  it('в данных: минимум 2 полные, возврат 60%, эффект снятой меры 50%', () => {
     expect(loaded.rules.minFullMeasures).toBe(2);
-    expect(loaded.rules.fullRefundShare).toBe(0.8);
+    expect(loaded.rules.fullRefundShare).toBe(0.6);
     expect(loaded.rules.removedEffectShare).toBe(0.5);
   });
-  it('снятие полной меры: возврат 80% вниз до целого, эффект +2 → +1, +1 → 0, −1 → 0', () => {
-    // M6: 18 у.е., эффекты (2,1,1,−1,1,0); 18 × 0,8 = 14,4 → 14
+  it('снятие полной меры: возврат 60% вниз до целого, эффект +2 → +1, +1 → 0, −1 → 0', () => {
+    // M6: 18 у.е., эффекты (2,1,1,−1,1,0); 18 × 0,6 = 10,8 → 10
     const ev = evaluate(data, dec('Моноград', { rounds: [{ M6: 'full', M4: 'full' }, {}, {}], cancels: [['M6'], []], negJoker: 'J-7' }));
     const it6 = ev.items.find((i) => i.code === 'M6')!;
-    expect(it6.refund).toBe(14);
-    expect(it6.paid).toBe(4);
-    expect(ev.reserve).toBe(100 - 18 - 15 - 15 + 14);
+    expect(it6.refund).toBe(10);
+    expect(it6.paid).toBe(8);
+    expect(ev.reserve).toBe(100 - 18 - 15 - 15 + 10);
     expect(it6.effects).toEqual({ econ: 1, social: 0, infra: 0, eco: 0, human: 0, adapt: 0 });
-    expect(ev.ledger.some((l) => l.amount === 14 && /возврат 80%/.test(l.text))).toBe(true);
+    expect(ev.ledger.some((l) => l.amount === 10 && /возврат 60%/.test(l.text))).toBe(true);
   });
   it('меры, удешевившие негативный джокер, снять нельзя', () => {
     const ev = evaluate(data, dec('Промград', { rounds: [{ M3: 'full', M13: 'conditional', M2: 'full' }, {}, {}], cancels: [['M3', 'M2'], []], negJoker: 'J-1' }));
@@ -285,11 +285,11 @@ describe('снятие мер в корректировке (правила 03.1
     expect(ev.locked).toEqual([]);
   });
   it('возврат увеличивает резерв, доступный для докупки в той же корректировке', () => {
-    // 100 − 30 − 30 − 30 = 10; J-7 → −5; снятие M16 (+24) → 19; докупка M2 полной (20) — не хватает, M13 (20) — нет, M4 (15) — да
-    const ok = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M16: 'full' }, { M4: 'full' }, {}], cancels: [['M16'], []], negJoker: 'J-7' }));
+    // 100 − 30 − 30 − 30 = 10; J-7 → −5; снятие M16 (+18) → 13; докупка M4 (15) — не хватает, M10 условно (5) — да
+    const ok = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M16: 'full' }, { M10: 'conditional' }, {}], cancels: [['M16'], []], negJoker: 'J-7' }));
     expect(ok.errors).toEqual([]);
-    expect(ok.reserve).toBe(4);
-    const bad = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M16: 'full' }, { M2: 'full' }, {}], cancels: [['M16'], []], negJoker: 'J-7' }));
+    expect(ok.reserve).toBe(8);
+    const bad = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M16: 'full' }, { M4: 'full' }, {}], cancels: [['M16'], []], negJoker: 'J-7' }));
     expect(bad.errors.join()).toMatch(/больше резерва/);
   });
 });

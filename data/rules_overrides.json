@@ -3,7 +3,7 @@
   "penaltyStep": 4,
   "penaltySpill": true,
   "minFullMeasures": 2,
-  "fullRefundShare": 0.8,
+  "fullRefundShare": 0.6,
   "removedEffectShare": 0.5,
   "measures": {
     "M11": {

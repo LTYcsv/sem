@@ -209,7 +209,7 @@ async function main() {
       r = await t.act({ type: 'cancelMeasure', code: full.code });
       const after = t.state!.portfolio.find((p) => p.code === full.code)!;
       check(r.ok && after.refund === full.refundIfRemoved && t.state!.balance!.reserve === before + full.refundIfRemoved,
-        `команда ${i + 1}: снятие полной ${full.code} вернуло ${after.refund} у.е. (80%), резерв ${before} → ${t.state!.balance!.reserve}`);
+        `команда ${i + 1}: снятие полной ${full.code} вернуло ${after.refund} у.е. (60%), резерв ${before} → ${t.state!.balance!.reserve}`);
     }
   }
   r = await teams[2].act({ type: 'setMeasure', code: 'M13', mode: 'full' });

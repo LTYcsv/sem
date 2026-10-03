@@ -229,6 +229,6 @@ export function namedStrategies(data: GameData, cityId: string): Strategy[] {
     { ...base, name: 'Только дешёвые M13/M4/M2 (полные)', init: { M13: 'full', M4: 'full', M2: 'full' }, usePos: 'freeOnly', closing: 'none' },
     greedy,
     greedyStrategy(data, cityId, 20, 'Жадный + резерв 20 на джокеры'),
-    { ...greedy, name: 'Обход: всё полным, после джокера снять незадействованные (80%) и докупить', drop: 'unlocked', keep: 0 },
+    { ...greedy, name: 'Обход: всё полным, после джокера снять незадействованные и докупить', drop: 'unlocked', keep: 0 },
   ];
 }

@@ -1,7 +1,7 @@
 {
   "meta": {
     "source": "Копия foresight_game_data.xlsx",
-    "generatedAt": "2026-10-03T18:29:02.131Z",
+    "generatedAt": "2026-10-03T18:49:50.737Z",
     "unconfirmed": [
       {
         "sheet": "Описания и сигналы",
@@ -676,7 +676,7 @@
       "Правило переопределено в data/rules_overrides.json: penaltyStep = 4 (в xlsx: 5)",
       "Правило переопределено в data/rules_overrides.json: penaltySpill = true (в xlsx: нет)",
       "Правило переопределено в data/rules_overrides.json: minFullMeasures = 2 (в xlsx: нет)",
-      "Правило переопределено в data/rules_overrides.json: fullRefundShare = 0.8 (в xlsx: нет)",
+      "Правило переопределено в data/rules_overrides.json: fullRefundShare = 0.6 (в xlsx: нет)",
       "Правило переопределено в data/rules_overrides.json: removedEffectShare = 0.5 (в xlsx: нет)"
     ],
     "overrides": [
@@ -691,7 +691,7 @@
       "penaltyStep: 5 (xlsx) → 4",
       "penaltySpill: нет (xlsx) → true",
       "minFullMeasures: нет (xlsx) → 2",
-      "fullRefundShare: нет (xlsx) → 0.8",
+      "fullRefundShare: нет (xlsx) → 0.6",
       "removedEffectShare: нет (xlsx) → 0.5"
     ]
   },
@@ -733,7 +733,7 @@
     "max": 10,
     "penaltySpill": true,
     "minFullMeasures": 2,
-    "fullRefundShare": 0.8,
+    "fullRefundShare": 0.6,
     "removedEffectShare": 0.5
   },
   "cities": [
