@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs';
 import { evaluate, emptyDecisions, negativeCost, partialEffects, validateData } from '../src/index.ts';
 import type { Decisions, GameData, NegativeJoker } from '../src/index.ts';
 
-const data: GameData = JSON.parse(readFileSync(new URL('../../data/game_data.json', import.meta.url), 'utf8'));
+const loaded: GameData = JSON.parse(readFileSync(new URL('../../data/game_data.json', import.meta.url), 'utf8'));
+// Механику проверяем на исходных правилах xlsx (шаг штрафа 5, без переноса); принятая правка — отдельный блок ниже.
+const data: GameData = { ...loaded, rules: { ...loaded.rules, penaltyStep: 5, penaltySpill: false } };
+const accepted: GameData = { ...loaded, rules: { ...loaded.rules, penaltyStep: 4, penaltySpill: true } };
 const city = (name: string) => data.cities.find((c) => c.name === name)!;
 const neg = (code: string) => data.jokers.find((j) => j.code === code) as NegativeJoker;
 const has = (...m: string[]) => new Set(m);
@@ -210,5 +213,37 @@ describe('итоговые показатели', () => {
     const f = ev.final!;
     expect(f.cityIndex).toBeCloseTo(Object.values(f.final).reduce((a, b) => a + b, 0) / 6);
     expect(f.startIndex).toBeCloseTo(26 / 6);
+  });
+});
+
+describe('принятая правка: шаг 4 и перенос штрафа', () => {
+  it('в собранных данных действуют шаг 4 и перенос', () => {
+    expect(loaded.rules.penaltyStep).toBe(4);
+    expect(loaded.rules.penaltySpill).toBe(true);
+  });
+  it('дефицит 15 → штраф 4 (вверх от 15/4)', () => {
+    const ev = evaluate(accepted, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M11: 'full' }, {}, {}], negJoker: 'J-4', posJoker: 'J0', closing: {} }));
+    expect(ev.final!.penalty).toBe(4);
+    expect(ev.final!.final.econ).toBe(8 - 1 + 2 + 1 - 4);
+    expect(ev.final!.spilled).toBe(0);
+  });
+  it('остаток штрафа ниже 1 переносится на наибольшие другие показатели', () => {
+    // Моноград: Экономика 4. Всё условно (99) → резерв 1; J-4 (M2+M7 → 10) → −9; запуск всего в долг
+    const allCond: Record<string, 'conditional'> = {};
+    for (const m of accepted.measures) if (m.conditionalAllowed) allCond[m.code] = 'conditional';
+    const closing = Object.fromEntries(Object.keys(allCond).map((c) => [c, { launch: true }]));
+    const ev = evaluate(accepted, dec('Моноград', { rounds: [allCond, {}, {}], negJoker: 'J-4', posJoker: 'J0', closing }));
+    const f = ev.final!;
+    expect(f.final.econ).toBe(1);
+    expect(f.spilled).toBeGreaterThan(0);
+    // Позже всех условных = 272; резерв 1 − 10 − 272 = −281 → штраф ⌈281/4⌉ = 71;
+    // Экономика 4 + 9 (эффекты) − 71 = −58 → 59 баллов не помещаются и переносятся — хватает, чтобы опустить всё до 1.
+    expect(f.reserve).toBe(-281);
+    expect(f.penalty).toBe(71);
+    expect(f.deltaSum).toBe(6 - 26);
+    for (const v of Object.values(f.final)) expect(v).toBeGreaterThanOrEqual(1);
+    // без переноса тот же портфель даёт заметно больший прирост — именно это и закрывает правка
+    const evOld = evaluate(data, dec('Моноград', { rounds: [allCond, {}, {}], negJoker: 'J-4', posJoker: 'J0', closing }));
+    expect(evOld.final!.deltaSum).toBeGreaterThan(f.deltaSum + 10);
   });
 });

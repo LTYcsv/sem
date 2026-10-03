@@ -17,6 +17,10 @@ export interface ModelRules {
   reserveBonusIndicator: IndicatorKey;
   min: number;
   max: number;
+  /** Кандидат правки: штраф, который не помещается в Экономику (она уже на минимуме), списывается с наибольших других показателей. */
+  penaltySpill?: boolean;
+  /** Кандидат правки: на закрытии запускать условную меру можно только если хватает резерва (без добровольного долга). */
+  closingNoDebt?: boolean;
 }
 
 export interface City {
@@ -87,6 +91,7 @@ export interface GameData {
     generatedAt: string;
     unconfirmed: { sheet: string; cell: string; text: string }[];
     warnings: string[];
+    overrides?: string[];
   };
   indicators: { key: IndicatorKey; label: string }[];
   rules: ModelRules;

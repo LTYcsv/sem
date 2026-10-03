@@ -75,6 +75,8 @@ export interface FinalResult {
   itemCount: number;
   deficit: number;
   reserve: number;
+  /** Сколько баллов штрафа перенесено с Экономики на другие показатели (правило penaltySpill). */
+  spilled: number;
 }
 
 export interface Evaluation {
@@ -135,8 +137,9 @@ export function ruleCost(base: number, rules: CostRule[], has: Set<string>) {
   return { cost: best.cost, applied: best.measures, options };
 }
 
-export function negativeCost(j: NegativeJoker, has: Set<string>): NegCost {
+export function negativeCost(j: NegativeJoker, has: Set<string>, texts = true): NegCost {
   const { cost, applied, options } = ruleCost(j.baseCost, j.rules, has);
+  if (!texts) return { code: j.code, base: j.baseCost, cost, applied, options, explanation: '' };
   let explanation: string;
   if (!applied) explanation = j.rules.length ? `${j.baseCost} у.е.: в портфеле нет мер, снижающих расходы` : `${j.baseCost} у.е.: подготовка на этот джокер не влияет`;
   else if (cost > j.baseCost) {
@@ -217,7 +220,8 @@ export function positiveOffer(j: PositiveJoker, items: Map<string, Item>, reserv
   }
 }
 
-export function evaluate(data: GameData, d: Decisions): Evaluation {
+export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean } = {}): Evaluation {
+  const texts = opts.texts !== false;
   const ctx = context(data);
   const rules = data.rules;
   const errors: string[] = [];
@@ -226,10 +230,13 @@ export function evaluate(data: GameData, d: Decisions): Evaluation {
   let reserve = city.startBudget ?? rules.startBudget;
   const ledger: LedgerEntry[] = [];
   const items = new Map<string, Item>();
-  const pay = (stage: Stage, amount: number, text: string, measure?: string) => {
+  const pay = (stage: Stage, amount: number, text: string | (() => string), measure?: string) => {
     if (amount === 0 && stage !== 'neg') return;
     reserve -= amount;
-    ledger.push({ stage, text, amount: -amount, balance: reserve, measure });
+    if (texts) ledger.push({ stage, text: typeof text === 'function' ? text() : text, amount: -amount, balance: reserve, measure });
+  };
+  const note = (stage: Stage, text: () => string, measure?: string) => {
+    if (texts) ledger.push({ stage, text: text(), amount: 0, balance: reserve, measure });
   };
   const m = (c: string) => {
     const x = ctx.measures.get(c);
@@ -246,7 +253,7 @@ export function evaluate(data: GameData, d: Decisions): Evaluation {
         code, initialMode: mode, round, status: mode === 'full' ? 'full' : 'conditional', paid: price,
         laterDue: mode === 'full' ? 0 : ms.later, laterDiscount: 0, effects: zero(),
       });
-      pay(stage, price, mode === 'full' ? `${code} «${ms.name}» — полная` : `${code} «${ms.name}» — подготовка (Сейчас)`, code);
+      pay(stage, price, () => mode === 'full' ? `${code} «${ms.name}» — полная` : `${code} «${ms.name}» — подготовка (Сейчас)`, code);
     }
   };
   const cancel = (idx: 0 | 1, stage: Stage) => {
@@ -255,7 +262,7 @@ export function evaluate(data: GameData, d: Decisions): Evaluation {
       if (!it || it.status !== 'conditional') { errors.push(`Отменить можно только условную меру (${code})`); continue; }
       it.status = 'cancelled';
       it.laterDue = 0;
-      ledger.push({ stage, text: `${code} — отказ от условной меры (подготовка ${it.paid} у.е. не возвращается)`, amount: 0, balance: reserve, measure: code });
+      note(stage, () => `${code} — отказ от условной меры (подготовка ${it.paid} у.е. не возвращается)`, code);
     }
   };
   const activeSet = () => new Set([...items.values()].filter((i) => i.status !== 'cancelled').map((i) => i.code));
@@ -270,8 +277,9 @@ export function evaluate(data: GameData, d: Decisions): Evaluation {
   if (d.negJoker) {
     const j = ctx.jokers.get(d.negJoker);
     if (!j || j.basket !== 'negative') throw new Error(`Неизвестный негативный джокер ${d.negJoker}`);
-    neg = negativeCost(j, activeSet());
-    pay('neg', neg.cost, `Джокер ${j.code} «${j.name}»: ${neg.explanation}`);
+    const nc = negativeCost(j, activeSet(), texts);
+    neg = nc;
+    pay('neg', nc.cost, () => `Джокер ${j.code} «${j.name}»: ${nc.explanation}`);
   }
 
   // 3. Корректировка 1
@@ -307,25 +315,25 @@ export function evaluate(data: GameData, d: Decisions): Evaluation {
             } else {
               items.set(code, { code, initialMode: 'full', round: 'pos', status: 'grant', paid: r.ownCost, laterDue: 0, laterDiscount: 0, effects: zero() });
             }
-            pay('pos', r.ownCost, `Джокер ${j.code} «${j.name}»: ${code} «${ms.name}» запущена полностью, команда платит ${r.ownCost}, грант покрывает ${ch.grantCovers}`, code);
+            pay('pos', r.ownCost, () => `Джокер ${j.code} «${j.name}»: ${code} «${ms.name}» запущена полностью, команда платит ${r.ownCost}, грант покрывает ${ch.grantCovers}`, code);
           }
         } else if (r.kind === 'partner' && !activeSet().has(r.measure)) {
           used = true;
           const ms = m(r.measure);
           const prev = items.get(r.measure); // отменённая ранее мера запускается заново
           items.set(r.measure, { code: r.measure, initialMode: 'full', round: 'pos', status: 'grant', paid: (prev?.paid ?? 0) + r.launchCost, laterDue: 0, laterDiscount: 0, effects: zero() });
-          pay('pos', r.launchCost, `Джокер ${j.code} «${j.name}»: ${r.measure} «${ms.name}» запущена сразу`, r.measure);
+          pay('pos', r.launchCost, () => `Джокер ${j.code} «${j.name}»: ${r.measure} «${ms.name}» запущена сразу`, r.measure);
         } else {
           used = true;
           if (r.kind === 'partner') discounts.set(r.measure, r.discount);
           if (r.kind === 'laterDiscount') for (const c of r.any) discounts.set(c, r.discount);
-          if (offer.cost) pay('pos', offer.cost, `Джокер ${j.code} «${j.name}»: использован (${offer.reason})`);
-          else ledger.push({ stage: 'pos', text: `Джокер ${j.code} «${j.name}»: использован без расходов — ${offer.gain}`, amount: 0, balance: reserve });
+          if (offer.cost) pay('pos', offer.cost, () => `Джокер ${j.code} «${j.name}»: использован (${offer.reason})`);
+          else note('pos', () => `Джокер ${j.code} «${j.name}»: использован без расходов — ${offer.gain}`);
         }
         if (used && j.bonus) bonus[j.bonus.indicator] += j.bonus.value;
       }
     } else if (decided) {
-      ledger.push({ stage: 'pos', text: `Джокер ${j.code} «${j.name}»: ${offer.available ? 'команда пропустила' : 'возможность потеряна — ' + offer.reason}`, amount: 0, balance: reserve });
+      note('pos', () => `Джокер ${j.code} «${j.name}»: ${offer.available ? 'команда пропустила' : 'возможность потеряна — ' + offer.reason}`);
     }
     pos = { ...offer, used, decided, measure: d.posDecision?.measure };
   }
@@ -350,14 +358,17 @@ export function evaluate(data: GameData, d: Decisions): Evaluation {
     for (const it of items.values()) {
       if (it.status !== 'conditional') continue;
       const dec = d.closing[it.code];
-      if (dec?.launch) {
+      if (dec?.launch && rules.closingNoDebt && reserve - it.laterDue < 0) {
+        errors.push(`${it.code}: не хватает резерва на запуск (${reserve} < ${it.laterDue})`);
+        it.status = 'notLaunched';
+      } else if (dec?.launch) {
         it.status = 'launched';
         it.paid += it.laterDue;
-        pay('closing', it.laterDue, `${it.code} — запуск на закрытии (Позже ${m(it.code).later}${it.laterDiscount ? ` − скидка ${it.laterDiscount}` : ''})`, it.code);
-        if (it.laterDue === 0) ledger.push({ stage: 'closing', text: `${it.code} — запуск на закрытии без доплаты (скидка покрыла «Позже»)`, amount: 0, balance: reserve, measure: it.code });
+        pay('closing', it.laterDue, () => `${it.code} — запуск на закрытии (Позже ${m(it.code).later}${it.laterDiscount ? ` − скидка ${it.laterDiscount}` : ''})`, it.code);
+        if (it.laterDue === 0) note('closing', () => `${it.code} — запуск на закрытии без доплаты (скидка покрыла «Позже»)`, it.code);
       } else {
         it.status = 'notLaunched';
-        ledger.push({ stage: 'closing', text: `${it.code} — не запускаем (остаётся половина эффекта)`, amount: 0, balance: reserve, measure: it.code });
+        note('closing', () => `${it.code} — не запускаем (остаётся половина эффекта)`, it.code);
       }
     }
   }
@@ -401,15 +412,25 @@ export function finalResult(data: GameData, city: City, ev: Evaluation, jokerBon
   raw[rules.reserveBonusIndicator] += reserveBonus;
   const final = zero();
   const delta = zero();
-  for (const k of INDICATORS) {
-    final[k] = clamp(raw[k], rules.min, rules.max);
-    delta[k] = final[k] - city.start[k];
+  for (const k of INDICATORS) final[k] = clamp(raw[k], rules.min, rules.max);
+  let spilled = 0;
+  if (rules.penaltySpill && penalty > 0) {
+    const pi = rules.penaltyIndicator;
+    let overflow = Math.min(penalty, Math.max(0, rules.min - raw[pi]));
+    while (overflow > 0) {
+      const k = INDICATORS.filter((x) => x !== pi && final[x] > rules.min).sort((a, b) => final[b] - final[a])[0];
+      if (!k) break;
+      final[k] -= 1;
+      overflow--;
+      spilled++;
+    }
   }
+  for (const k of INDICATORS) delta[k] = final[k] - city.start[k];
   const counted = ev.items.filter((i) => i.status !== 'cancelled');
   return {
     start: { ...city.start }, effects, jokerBonus, penalty, reserveBonus, raw, final, delta, deltaSum: sumV(delta),
     startIndex: sumV(city.start) / 6, cityIndex: sumV(final) / 6, resilienceIndex: 0, resilienceCount: 0, itemCount: counted.length,
-    deficit, reserve: ev.reserve,
+    deficit, reserve: ev.reserve, spilled,
   };
 }
 

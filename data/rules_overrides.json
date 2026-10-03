@@ -1,0 +1,5 @@
+{
+  "_comment": "Правки правил поверх листа «Правила модели» (согласованы 03.10.2026 по итогам симуляции, см. docs/ECONOMY_REPORT.md). Когда внесёте их в xlsx — удалите отсюда. Ключи: penaltyStep, penaltySpill, closingNoDebt, conditionalShare, reserveBonusStep, reserveBonusMax.",
+  "penaltyStep": 4,
+  "penaltySpill": true
+}

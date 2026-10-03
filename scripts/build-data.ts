@@ -294,8 +294,34 @@ const rules: ModelRules = {
   max: num(param('Максимальное значение показателя'), 'Максимум'),
 };
 
+// Необязательные строки листа «Правила модели» (если появятся в xlsx)
+const optBool = (label: string) => {
+  const key = [...params.keys()].find((k) => k.startsWith(norm(label)));
+  return key ? norm(text(params.get(key)!)) === 'да' : undefined;
+};
+const spillX = optBool('Перенос штрафа');
+if (spillX !== undefined) rules.penaltySpill = spillX;
+const noDebtX = optBool('Запуск на закрытии только при наличии резерва');
+if (noDebtX !== undefined) rules.closingNoDebt = noDebtX;
+
+// Переопределения из data/rules_overrides.json
+const overridesPath = join(root, 'data', 'rules_overrides.json');
+const overrides: string[] = [];
+if (existsSync(overridesPath)) {
+  const o = JSON.parse(readFileSync(overridesPath, 'utf8'));
+  for (const [k, v] of Object.entries(o)) {
+    if (k.startsWith('_')) continue;
+    if (!(k in rules) && !['penaltySpill', 'closingNoDebt'].includes(k)) throw new Error(`rules_overrides.json: неизвестный параметр ${k}`);
+    const before = (rules as any)[k];
+    if (before === v) continue;
+    (rules as any)[k] = v;
+    overrides.push(`${k}: ${before ?? 'нет'} (xlsx) → ${v}`);
+    warnings.push(`Правило переопределено в data/rules_overrides.json: ${k} = ${v} (в xlsx: ${before ?? 'нет'})`);
+  }
+}
+
 const data: GameData = {
-  meta: { source: xlsxPath.split('/').pop()!, generatedAt: new Date().toISOString(), unconfirmed, warnings },
+  meta: { source: xlsxPath.split('/').pop()!, generatedAt: new Date().toISOString(), unconfirmed, warnings, overrides },
   indicators: INDICATORS.map((key) => ({ key, label: indicatorLabels.get(key)! })),
   rules,
   cities,

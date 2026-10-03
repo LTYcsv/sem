@@ -1,7 +1,7 @@
 {
   "meta": {
     "source": "Копия foresight_game_data.xlsx",
-    "generatedAt": "2026-10-03T15:53:42.152Z",
+    "generatedAt": "2026-10-03T16:15:56.390Z",
     "unconfirmed": [
       {
         "sheet": "Описания и сигналы",
@@ -664,7 +664,14 @@
         "text": "J0: размер бонуса"
       }
     ],
-    "warnings": []
+    "warnings": [
+      "Правило переопределено в data/rules_overrides.json: penaltyStep = 4 (в xlsx: 5)",
+      "Правило переопределено в data/rules_overrides.json: penaltySpill = true (в xlsx: нет)"
+    ],
+    "overrides": [
+      "penaltyStep: 5 (xlsx) → 4",
+      "penaltySpill: нет (xlsx) → true"
+    ]
   },
   "indicators": [
     {
@@ -695,13 +702,14 @@
   "rules": {
     "startBudget": 100,
     "conditionalShare": 0.5,
-    "penaltyStep": 5,
+    "penaltyStep": 4,
     "penaltyIndicator": "econ",
     "reserveBonusStep": 10,
     "reserveBonusMax": 2,
     "reserveBonusIndicator": "adapt",
     "min": 1,
-    "max": 10
+    "max": 10,
+    "penaltySpill": true
   },
   "cities": [
     {
