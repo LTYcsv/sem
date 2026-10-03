@@ -313,8 +313,28 @@ const overridesPath = join(root, 'data', 'rules_overrides.json');
 const overrides: string[] = [];
 if (existsSync(overridesPath)) {
   const o = JSON.parse(readFileSync(overridesPath, 'utf8'));
+  for (const [code, patch] of Object.entries((o.measures ?? {}) as Record<string, any>)) {
+    const m = measures.find((x) => x.code === code);
+    if (!m) throw new Error(`rules_overrides.json: нет меры ${code}`);
+    for (const f of ['full', 'now', 'later'] as const) if (patch[f] !== undefined && patch[f] !== m[f]) {
+      overrides.push(`${code}.${f}: ${m[f]} → ${patch[f]}`);
+      m[f] = patch[f];
+    }
+    for (const [k, v] of Object.entries((patch.effects ?? {}) as Record<string, number>)) {
+      if (!(k in m.effects)) throw new Error(`rules_overrides.json: у ${code} нет показателя ${k}`);
+      if (m.effects[k as IndicatorKey] !== v) { overrides.push(`${code}.${k}: ${m.effects[k as IndicatorKey]} → ${v}`); m.effects[k as IndicatorKey] = v; }
+    }
+  }
+  for (const [name, patch] of Object.entries((o.cities ?? {}) as Record<string, any>)) {
+    const c = cityByName(name);
+    for (const [k, v] of Object.entries((patch.start ?? {}) as Record<string, number>)) {
+      if (!(k in c.start)) throw new Error(`rules_overrides.json: у города нет показателя ${k}`);
+      if (c.start[k as IndicatorKey] !== v) { overrides.push(`${c.name}.${k}: ${c.start[k as IndicatorKey]} → ${v}`); c.start[k as IndicatorKey] = v; }
+    }
+  }
+  for (const w of overrides) warnings.push(`Число переопределено в data/rules_overrides.json: ${w} (в xlsx другое значение)`);
   for (const [k, v] of Object.entries(o)) {
-    if (k.startsWith('_')) continue;
+    if (k.startsWith('_') || k === 'measures' || k === 'cities') continue;
     if (!(k in rules) && !['penaltySpill', 'closingNoDebt', 'minFullMeasures', 'fullRefundShare', 'removedEffectShare'].includes(k)) throw new Error(`rules_overrides.json: неизвестный параметр ${k}`);
     const before = (rules as any)[k];
     if (before === v) continue;

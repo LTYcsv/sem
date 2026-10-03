@@ -1,7 +1,7 @@
 {
   "meta": {
     "source": "Копия foresight_game_data.xlsx",
-    "generatedAt": "2026-10-03T18:02:04.078Z",
+    "generatedAt": "2026-10-03T18:29:02.131Z",
     "unconfirmed": [
       {
         "sheet": "Описания и сигналы",
@@ -665,6 +665,14 @@
       }
     ],
     "warnings": [
+      "Число переопределено в data/rules_overrides.json: M11.full: 35 → 30 (в xlsx другое значение)",
+      "Число переопределено в data/rules_overrides.json: M11.now: 10 → 8 (в xlsx другое значение)",
+      "Число переопределено в data/rules_overrides.json: M11.later: 25 → 22 (в xlsx другое значение)",
+      "Число переопределено в data/rules_overrides.json: M11.infra: -1 → 0 (в xlsx другое значение)",
+      "Число переопределено в data/rules_overrides.json: M16.eco: -1 → 0 (в xlsx другое значение)",
+      "Число переопределено в data/rules_overrides.json: M1.econ: -1 → 0 (в xlsx другое значение)",
+      "Число переопределено в data/rules_overrides.json: Новая долина.adapt: 8 → 7 (в xlsx другое значение)",
+      "Число переопределено в data/rules_overrides.json: Новая долина.human: 8 → 7 (в xlsx другое значение)",
       "Правило переопределено в data/rules_overrides.json: penaltyStep = 4 (в xlsx: 5)",
       "Правило переопределено в data/rules_overrides.json: penaltySpill = true (в xlsx: нет)",
       "Правило переопределено в data/rules_overrides.json: minFullMeasures = 2 (в xlsx: нет)",
@@ -672,6 +680,14 @@
       "Правило переопределено в data/rules_overrides.json: removedEffectShare = 0.5 (в xlsx: нет)"
     ],
     "overrides": [
+      "M11.full: 35 → 30",
+      "M11.now: 10 → 8",
+      "M11.later: 25 → 22",
+      "M11.infra: -1 → 0",
+      "M16.eco: -1 → 0",
+      "M1.econ: -1 → 0",
+      "Новая долина.adapt: 8 → 7",
+      "Новая долина.human: 8 → 7",
       "penaltyStep: 5 (xlsx) → 4",
       "penaltySpill: нет (xlsx) → true",
       "minFullMeasures: нет (xlsx) → 2",
@@ -820,8 +836,8 @@
         "social": 6,
         "infra": 4,
         "eco": 5,
-        "human": 8,
-        "adapt": 8
+        "human": 7,
+        "adapt": 7
       },
       "unique": [
         {
@@ -1018,7 +1034,7 @@
       "triggerExample": "Износ/аварийность превышает установленный порог",
       "description": "Снижает стоимость аварий и повышает надежность базовой инфраструктуры.",
       "effects": {
-        "econ": -1,
+        "econ": 0,
         "social": 0,
         "infra": 2,
         "eco": 1,
@@ -1191,16 +1207,16 @@
     {
       "code": "M11",
       "name": "Новый крупный жилой район",
-      "full": 35,
-      "now": 10,
-      "later": 25,
+      "full": 30,
+      "now": 8,
+      "later": 22,
       "conditionalAllowed": true,
       "triggerExample": "Устойчивый прирост населения >2% в год 3 года подряд",
       "description": "Сценарно зависимая капитальная ставка; повышает предложение жилья, но создает будущие расходы.",
       "effects": {
         "econ": 1,
         "social": 2,
-        "infra": -1,
+        "infra": 0,
         "eco": -1,
         "human": 2,
         "adapt": 0
@@ -1291,7 +1307,7 @@
         "econ": 0,
         "social": 2,
         "infra": 1,
-        "eco": -1,
+        "eco": 0,
         "human": 1,
         "adapt": 0
       }

@@ -60,8 +60,8 @@ describe('негативные джокеры', () => {
   });
   it('нехватка резерва уводит его в минус (дефицит)', () => {
     const ev = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M11: 'full' }, {}, {}], negJoker: 'J-4' }));
-    // 100 − 95 = 5; J-4 при M7 → 20; резерв −15
-    expect(ev.reserve).toBe(-15);
+    // 100 − 30 − 30 − 30 (M11 после правки) = 10; J-4 при M7 → 20; резерв −10
+    expect(ev.reserve).toBe(-10);
   });
 });
 
@@ -103,11 +103,11 @@ describe('условные меры', () => {
   });
   it('прогноз на закрытии = резерв − «Позже» ожидающих мер, штраф по прогнозу', () => {
     const ev = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M11: 'conditional', M16: 'conditional' }, {}, {}] }));
-    // 100 − 30 − 30 − 10 − 8 = 22; Позже 25 + 22 = 47 → прогноз −25 → штраф 5
-    expect(ev.reserve).toBe(22);
-    expect(ev.laterCommitments).toBe(47);
-    expect(ev.forecast).toBe(-25);
-    expect(ev.forecastPenalty).toBe(5);
+    // 100 − 30 − 30 − 8 − 8 = 24; Позже 22 + 22 = 44 → прогноз −20 → штраф 20/5 = 4
+    expect(ev.reserve).toBe(24);
+    expect(ev.laterCommitments).toBe(44);
+    expect(ev.forecast).toBe(-20);
+    expect(ev.forecastPenalty).toBe(4);
   });
 });
 
@@ -166,12 +166,12 @@ describe('положительные джокеры', () => {
 
 describe('итоговые показатели', () => {
   it('штраф: каждые 5 у.е. дефицита (вверх) −1 к Экономике', () => {
-    // Промград: M1+M7+M11 полные = 95, J-4 → 20 → резерв −15 → штраф 3
+    // Промград: M1+M7+M11 полные = 90, J-4 → 20 → резерв −10 → штраф 2
     const ev = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M11: 'full' }, {}, {}], negJoker: 'J-4', posJoker: 'J0', closing: {} }));
-    expect(ev.final!.deficit).toBe(15);
-    expect(ev.final!.penalty).toBe(3);
-    // Экономика: 8 − 1 (M1) + 2 (M7) + 1 (M11) − 3 = 7
-    expect(ev.final!.final.econ).toBe(7);
+    expect(ev.final!.deficit).toBe(10);
+    expect(ev.final!.penalty).toBe(2);
+    // Экономика: 8 + 0 (M1 после правки) + 2 (M7) + 1 (M11) − 2 = 9
+    expect(ev.final!.final.econ).toBe(9);
   });
   it('штраф округляется вверх: дефицит 11 → −3', () => {
     const ev = evaluate(data, dec('Моноград', { rounds: [{ M1: 'full', M7: 'full', M16: 'full' }, {}, {}], negJoker: 'J-3', posJoker: 'J0', closing: {} }));
@@ -221,10 +221,10 @@ describe('принятая правка: шаг 4 и перенос штрафа
     expect(loaded.rules.penaltyStep).toBe(4);
     expect(loaded.rules.penaltySpill).toBe(true);
   });
-  it('дефицит 15 → штраф 4 (вверх от 15/4)', () => {
+  it('дефицит 10 → штраф 3 (вверх от 10/4)', () => {
     const ev = evaluate(accepted, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M11: 'full' }, {}, {}], negJoker: 'J-4', posJoker: 'J0', closing: {} }));
-    expect(ev.final!.penalty).toBe(4);
-    expect(ev.final!.final.econ).toBe(8 - 1 + 2 + 1 - 4);
+    expect(ev.final!.penalty).toBe(3);
+    expect(ev.final!.final.econ).toBe(8 + 0 + 2 + 1 - 3);
     expect(ev.final!.spilled).toBe(0);
   });
   it('остаток штрафа ниже 1 переносится на наибольшие другие показатели', () => {
@@ -236,10 +236,10 @@ describe('принятая правка: шаг 4 и перенос штрафа
     const f = ev.final!;
     expect(f.final.econ).toBe(1);
     expect(f.spilled).toBeGreaterThan(0);
-    // Позже всех условных = 272; резерв 1 − 10 − 272 = −281 → штраф ⌈281/4⌉ = 71;
-    // Экономика 4 + 9 (эффекты) − 71 = −58 → 59 баллов не помещаются и переносятся — хватает, чтобы опустить всё до 1.
-    expect(f.reserve).toBe(-281);
-    expect(f.penalty).toBe(71);
+    // «Сейчас» всех условных = 97 → резерв 3; J-4 → −7; «Позже» всех = 269 → −276 → штраф ⌈276/4⌉ = 69;
+    // Экономика 4 + 10 (эффекты) − 69 = −55 → 56 баллов не помещаются и переносятся — хватает, чтобы опустить всё до 1.
+    expect(f.reserve).toBe(-276);
+    expect(f.penalty).toBe(69);
     expect(f.deltaSum).toBe(6 - 26);
     for (const v of Object.values(f.final)) expect(v).toBeGreaterThanOrEqual(1);
     // без переноса тот же портфель даёт заметно больший прирост — именно это и закрывает правка
@@ -249,6 +249,14 @@ describe('принятая правка: шаг 4 и перенос штрафа
 });
 
 describe('снятие мер в корректировке (правила 03.10.2026)', () => {
+  it('принятые правки чисел: M11, M16, M1, Новая долина', () => {
+    const m = (c: string) => loaded.measures.find((x) => x.code === c)!;
+    expect([m('M11').full, m('M11').now, m('M11').later, m('M11').effects.infra]).toEqual([30, 8, 22, 0]);
+    expect(m('M16').effects.eco).toBe(0);
+    expect(m('M1').effects.econ).toBe(0);
+    const nd = loaded.cities.find((c) => c.name === 'Новая долина')!;
+    expect([nd.start.adapt, nd.start.human]).toEqual([7, 7]);
+  });
   it('в данных: минимум 2 полные, возврат 80%, эффект снятой меры 50%', () => {
     expect(loaded.rules.minFullMeasures).toBe(2);
     expect(loaded.rules.fullRefundShare).toBe(0.8);
