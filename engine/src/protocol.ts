@@ -87,14 +87,20 @@ export interface PortfolioRow {
   laterDiscount: number;
   /** Можно ли изменить режим/убрать в текущем шаге. */
   editable: boolean;
-  /** Можно ли отказаться (условная из прошлого шага). */
+  /** Можно ли снять (мера прошлого шага, не запущенная джокером и не заблокированная). */
   cancellable: boolean;
+  /** Удешевила негативный джокер — снимать нельзя. */
+  locked: boolean;
+  /** Сколько вернётся при снятии сейчас. */
+  refundIfRemoved: number;
+  /** Возвращено при снятии. */
+  refund: number;
   scenarios: Marks;
   trigger: string;
 }
 
 /** Ошибки, мешающие нажать «Готово». Пустой список = шаг можно завершить. */
-export function validateStep(phase: Phase, inputs: Inputs, opts: { diagnosticsEnabled: boolean; portfolio: PortfolioRow[]; posDecided?: boolean; posAvailable?: boolean }): string[] {
+export function validateStep(phase: Phase, inputs: Inputs, opts: { diagnosticsEnabled: boolean; portfolio: PortfolioRow[]; posDecided?: boolean; posAvailable?: boolean; minFull?: number }): string[] {
   const e: string[] = [];
   if (phase === 'city' && opts.diagnosticsEnabled) {
     for (const k of Object.keys(DIAG_SLOTS) as (keyof typeof DIAG_SLOTS)[]) {
@@ -115,6 +121,10 @@ export function validateStep(phase: Phase, inputs: Inputs, opts: { diagnosticsEn
       const n = countSentences(s.text);
       if (n < 3) e.push(`Сценарий ${i + 1}: нужно минимум 3 предложения (сейчас ${n})`);
     });
+  }
+  if (phase === 'budget' && opts.minFull) {
+    const n = opts.portfolio.filter((r) => r.status === 'full').length;
+    if (n < opts.minFull) e.push(`Нужно минимум ${opts.minFull} полные меры (сейчас ${n})`);
   }
   if (phase === 'budget' || phase === 'corr1' || phase === 'corr2') {
     for (const r of opts.portfolio) {
@@ -173,7 +183,7 @@ export interface TeamView {
   serverNow: number;
   game: { pin: string; status: 'lobby' | 'running' | 'finished'; diagnosticsEnabled: boolean; teamsJoined: number; announcement: { id: string; text: string; at: number } | null };
   team: { id: string; name: string; phase: Phase; deadline: number | null; remainingMs: number | null; paused: boolean; durationMs: number };
-  rules: { penaltyStep: number; reserveBonusStep: number; reserveBonusMax: number; conditionalSharePct: number };
+  rules: { penaltyStep: number; reserveBonusStep: number; reserveBonusMax: number; conditionalSharePct: number; minFull: number; refundPct: number };
   inputs: Inputs;
   city: PublicCity | null;
   catalog: PublicMeasure[];

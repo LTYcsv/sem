@@ -15,6 +15,8 @@ export interface Strategy {
   keep: number;
   usePos: 'always' | 'freeOnly' | 'never';
   closing: Closing;
+  /** Снятие мер в корректировке 1: нет / только при дефиците / все незаблокированные полные (возврат 80%). */
+  drop: 'none' | 'deficit' | 'unlocked';
 }
 
 export interface RunResult {
@@ -39,6 +41,22 @@ export function playOnce(data: GameData, cityId: string, s: Strategy, neg: strin
   const d: Decisions = { cityId, rounds: [{ ...s.init }, {}, {}], cancels: [[], []], marks: {}, negJoker: neg };
   const fast = { texts: false };
   const correct = (round: 1 | 2) => {
+    if (round === 1 && s.drop !== 'none') {
+      const ev0 = evaluate(data, d, fast);
+      let r = ev0.reserve;
+      const removable = ev0.items.filter((i) => (i.status === 'full' || i.status === 'conditional') && !ev0.locked.includes(i.code));
+      const refundOf = (c: string) => Math.floor(measures.get(c)!.full * (data.rules.fullRefundShare ?? 0));
+      if (s.drop === 'unlocked') {
+        for (const i of removable) if (i.status === 'full') d.cancels[0].push(i.code);
+      } else {
+        // при дефиците снимаем полные с наибольшим возвратом, пока резерв не станет ≥ 0
+        for (const i of removable.filter((x) => x.status === 'full').sort((a, b) => refundOf(b.code) - refundOf(a.code))) {
+          if (r >= 0) break;
+          d.cancels[0].push(i.code);
+          r += refundOf(i.code);
+        }
+      }
+    }
     if (!Number.isFinite(s.keep)) return;
     let ev = evaluate(data, d, fast);
     let reserve = ev.reserve;
@@ -147,7 +165,13 @@ export function randomStrategy(data: GameData, r: () => number, i: number): Stra
   const pFull = r();
   const init: Record<string, Mode> = {};
   let spent = 0;
+  const minFull = data.rules.minFullMeasures ?? 0;
+  for (const code of order.filter((c) => data.measures.find((x) => x.code === c)!.full <= 40).slice(0, minFull)) {
+    init[code] = 'full';
+    spent += data.measures.find((x) => x.code === code)!.full;
+  }
   for (const code of order) {
+    if (init[code]) continue;
     const m = data.measures.find((x) => x.code === code)!;
     const mode: Mode = r() < pFull || !m.conditionalAllowed ? 'full' : 'conditional';
     const price = mode === 'full' ? m.full : m.now;
@@ -162,6 +186,7 @@ export function randomStrategy(data: GameData, r: () => number, i: number): Stra
     keep: keeps[Math.floor(r() * keeps.length)],
     usePos: r() < 0.7 ? 'always' : r() < 0.5 ? 'freeOnly' : 'never',
     closing: (['none', 'affordable', 'all'] as const)[Math.floor(r() * 3)],
+    drop: (['none', 'deficit', 'unlocked'] as const)[Math.floor(r() * 3)],
   };
 }
 
@@ -186,19 +211,24 @@ export function greedyStrategy(data: GameData, cityId: string, keep = 0, name = 
     const ma = data.measures.find((m) => m.code === a)!, mb = data.measures.find((m) => m.code === b)!;
     return sumV(mb.effects) / mb.full - sumV(ma.effects) / ma.full;
   });
-  return { name, init, order, corrMode: 'full', keep: Number.isFinite(keep) ? 0 : Infinity, usePos: 'always', closing: 'affordable' };
+  return { name, init, order, corrMode: 'full', keep: Number.isFinite(keep) ? 0 : Infinity, usePos: 'always', closing: 'affordable', drop: 'none' };
 }
 
 export function namedStrategies(data: GameData, cityId: string): Strategy[] {
-  const allCond: Record<string, Mode> = {};
-  for (const m of data.measures) if (m.conditionalAllowed) allCond[m.code] = 'conditional';
   const order = data.measures.map((m) => m.code);
+  // «Всё условно» с обязательными двумя полными: две самые дешёвые полные (M4, M6) + всё остальное условно
+  const allCond: Record<string, Mode> = { M4: 'full', M6: 'full' };
+  let spent = 33;
+  for (const m of data.measures) if (m.conditionalAllowed && !allCond[m.code] && spent + m.now <= 100) { allCond[m.code] = 'conditional'; spent += m.now; }
+  const base = { order, corrMode: 'full' as Mode, keep: Infinity, usePos: 'always' as const, drop: 'none' as const };
+  const greedy = greedyStrategy(data, cityId, 0);
   return [
-    { name: 'Всё условно, запуск по средствам', init: allCond, order, corrMode: 'full', keep: Infinity, usePos: 'always', closing: 'affordable' },
-    { name: 'Всё условно, запуск всего в долг', init: allCond, order, corrMode: 'full', keep: Infinity, usePos: 'always', closing: 'all' },
-    { name: 'Копить резерв (ничего не покупать)', init: {}, order, corrMode: 'full', keep: Infinity, usePos: 'freeOnly', closing: 'none' },
-    { name: 'Только дешёвые M13/M4/M2 (полные)', init: { M13: 'full', M4: 'full', M2: 'full' }, order, corrMode: 'full', keep: Infinity, usePos: 'freeOnly', closing: 'none' },
-    greedyStrategy(data, cityId, 0),
+    { ...base, name: 'Две полные (M4, M6) + всё условно, запуск по средствам', init: allCond, closing: 'affordable' },
+    { ...base, name: 'Две полные + всё условно, запуск всего в долг', init: allCond, closing: 'all' },
+    { ...base, name: 'Копить: только две дешёвые полные (M4, M6)', init: { M4: 'full', M6: 'full' }, usePos: 'freeOnly', closing: 'none' },
+    { ...base, name: 'Только дешёвые M13/M4/M2 (полные)', init: { M13: 'full', M4: 'full', M2: 'full' }, usePos: 'freeOnly', closing: 'none' },
+    greedy,
     greedyStrategy(data, cityId, 20, 'Жадный + резерв 20 на джокеры'),
+    { ...greedy, name: 'Обход: всё полным, после джокера снять незадействованные (80%) и докупить', drop: 'unlocked', keep: 0 },
   ];
 }

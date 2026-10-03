@@ -154,10 +154,14 @@ async function main() {
   console.log('\n[5] Бюджет');
   const plans: Record<string, 'full' | 'conditional'>[] = [
     { M4: 'full', M13: 'conditional', M2: 'conditional', M6: 'full', M5: 'conditional', M8: 'conditional' },
-    { M3: 'conditional', M13: 'conditional', M7: 'full', M14: 'conditional', M9: 'conditional' },
+    { M3: 'conditional', M13: 'conditional', M7: 'full', M14: 'full', M9: 'conditional' },
     { M1: 'full', M7: 'full', M11: 'full' },
-    { M12: 'conditional', M10: 'conditional', M15: 'conditional', M16: 'conditional', M2: 'full' },
+    { M12: 'full', M10: 'conditional', M15: 'conditional', M16: 'conditional', M2: 'full' },
   ];
+  await teams[3].act({ type: 'setMeasure', code: 'M2', mode: 'full' });
+  await teams[3].act({ type: 'setMarks', code: 'M2', scenarios: [true, false, false, false], trigger: '' });
+  r = await teams[3].act({ type: 'finish' });
+  check(!r.ok && r.errors!.some((e) => /минимум 2 полные/.test(e)), 'бюджет с одной полной мерой не закрывается (нужно минимум 2)');
   for (const [i, t] of teams.entries()) {
     for (const [code, mode] of Object.entries(plans[i])) {
       const a = await t.act({ type: 'setMeasure', code, mode });
@@ -192,9 +196,22 @@ async function main() {
   await Promise.all(teams.map((t) => t.until((s) => s.team.phase === 'corr1')));
   r = await teams[0].act({ type: 'cancelMeasure', code: 'M8' });
   const m8 = teams[0].state!.portfolio.find((p) => p.code === 'M8')!;
-  check(r.ok && m8.status === 'cancelled' && m8.paid === 6, 'отказ от условной M8: подготовка 6 у.е. не вернулась');
-  r = await teams[0].act({ type: 'cancelMeasure', code: 'M4' });
-  check(!r.ok, 'полную меру отменить нельзя');
+  check(r.ok && m8.status === 'cancelled' && m8.paid === 6 && m8.laterDue === 0, 'снятие условной M8: «Сейчас» 6 у.е. не вернулось, «Позже» больше не числится');
+  for (const [i, t] of teams.entries()) {
+    const locked = t.state!.portfolio.find((p) => p.locked);
+    if (locked) {
+      r = await t.act({ type: 'cancelMeasure', code: locked.code });
+      check(!r.ok && /удешевила/.test(r.error!), `команда ${i + 1}: ${locked.code} покрыла ${t.state!.negJoker!.code} — снять нельзя`);
+    }
+    const full = t.state!.portfolio.find((p) => p.status === 'full' && !p.locked && p.round === 0);
+    if (full && i < 2) {
+      const before = t.state!.balance!.reserve;
+      r = await t.act({ type: 'cancelMeasure', code: full.code });
+      const after = t.state!.portfolio.find((p) => p.code === full.code)!;
+      check(r.ok && after.refund === full.refundIfRemoved && t.state!.balance!.reserve === before + full.refundIfRemoved,
+        `команда ${i + 1}: снятие полной ${full.code} вернуло ${after.refund} у.е. (80%), резерв ${before} → ${t.state!.balance!.reserve}`);
+    }
+  }
   r = await teams[2].act({ type: 'setMeasure', code: 'M13', mode: 'full' });
   check(!r.ok || teams[2].state!.balance!.reserve >= 0, 'докупка только из резерва');
   if (teams[0].state!.balance!.reserve >= 5) {

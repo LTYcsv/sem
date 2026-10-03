@@ -237,10 +237,12 @@ export class GameManager {
         break;
       }
       case 'cancelMeasure': {
-        if (round !== 1 && round !== 2) throw new GameError('Отказаться от меры можно только в корректировке');
+        if (round !== 1 && round !== 2) throw new GameError('Снять меру можно только в корректировке');
         const ev = evaluate(this.data, t.decisions, { texts: false });
         const it = ev.items.find((i) => i.code === a.code);
-        if (!it || it.status !== 'conditional' || it.round === round) throw new GameError('Отказаться можно только от условной меры прошлых шагов');
+        if (!it || it.round === round || it.round === 'pos' || (it.status !== 'conditional' && it.status !== 'full'))
+          throw new GameError('Снять можно только полную или условную меру прошлых шагов (меры, запущенные джокером, не снимаются)');
+        if (ev.locked.includes(a.code)) throw new GameError(`${a.code} удешевила негативный джокер — снимать нельзя`);
         t.decisions.cancels[round - 1].push(a.code);
         break;
       }
@@ -310,6 +312,7 @@ export class GameManager {
       portfolio: this.portfolio(t, ev),
       posDecided: !!t.decisions.posDecision,
       posAvailable: !!ev.pos?.available,
+      minFull: this.data.rules.minFullMeasures ?? 0,
     });
   }
 
@@ -421,10 +424,13 @@ export class GameManager {
     return ev.items.map((it) => {
       const m = this.data.measures.find((x) => x.code === it.code)!;
       const marks = t.decisions.marks[it.code] ?? { scenarios: [false, false, false, false] as Marks, trigger: '' };
+      const locked = ev.locked.includes(it.code);
       return {
         code: it.code, name: m.name, status: it.status, mode: it.initialMode, round: it.round, paid: it.paid, laterDue: it.laterDue, laterDiscount: it.laterDiscount,
         editable: round !== null && it.round === round,
-        cancellable: (round === 1 || round === 2) && it.status === 'conditional' && it.round !== round,
+        cancellable: (round === 1 || round === 2) && (it.status === 'conditional' || it.status === 'full') && it.round !== round && it.round !== 'pos' && !locked,
+        locked, refund: it.refund,
+        refundIfRemoved: it.status === 'full' ? Math.floor(m.full * (this.data.rules.fullRefundShare ?? 0)) : 0,
         scenarios: marks.scenarios, trigger: marks.trigger,
       };
     });
@@ -480,6 +486,7 @@ export class GameManager {
       rules: {
         penaltyStep: this.data.rules.penaltyStep, reserveBonusStep: this.data.rules.reserveBonusStep, reserveBonusMax: this.data.rules.reserveBonusMax,
         conditionalSharePct: Math.round(this.data.rules.conditionalShare * 100),
+        minFull: this.data.rules.minFullMeasures ?? 0, refundPct: Math.round((this.data.rules.fullRefundShare ?? 0) * 100),
       },
       inputs: t.inputs,
       city: city && t.phase !== 'lobby' ? { id: city.id, name: city.name, type: city.type, general: city.general, unique: city.unique, situation: city.situation, signals: city.signals } : null,

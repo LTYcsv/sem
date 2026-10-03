@@ -27,7 +27,7 @@ const num = (n: number, d = 1) => n.toFixed(d).replace('.', ',').replace('-', '�
 const money = (n: number) => (n < 0 ? `−${-n}` : String(n));
 
 const STATUS: Record<string, string> = {
-  full: 'полная', grant: 'запущена джокером', conditional: 'условная', launched: 'условная → запущена', notLaunched: 'условная → не запущена', cancelled: 'отказ',
+  full: 'полная', grant: 'запущена джокером', conditional: 'условная', launched: 'условная → запущена', notLaunched: 'условная → не запущена', cancelled: 'снята',
 };
 const STAGE: Record<string, string> = { budget: 'Бюджет', neg: 'Негативный джокер', corr1: 'Корректировка 1', pos: 'Положительный джокер', corr2: 'Корректировка 2', closing: 'Закрытие' };
 
@@ -74,7 +74,9 @@ export function reportHtml(data: GameData, g: GameState, t: TeamState, ev: Evalu
     const sc = marks.map((v, i) => (v ? `<b>${i + 1}</b>` : `<span class="off">${i + 1}</span>`)).join(' ');
     const trig = t.decisions.marks[it.code]?.trigger;
     const reason = t.decisions.closing?.[it.code]?.reason;
-    return `<tr><td><b>${it.code}</b> ${esc(m.name)}</td><td>${STATUS[it.status]}</td><td class="r">${it.paid}</td>
+    const st = it.status === 'cancelled' ? `${it.initialMode === 'full' ? 'полная' : 'условная'} → снята${it.refund ? ` (возврат ${it.refund})` : ''}` : STATUS[it.status];
+    const lock = ev.locked.includes(it.code) ? ' <span class="sub">покрыла джокер</span>' : '';
+    return `<tr><td><b>${it.code}</b> ${esc(m.name)}${lock}</td><td>${st}</td><td class="r">${it.paid}</td>
       <td>${it.initialMode === 'conditional' ? txt(trig) : '—'}${reason ? `<div class="sub">Закрытие: ${esc(reason)}</div>` : ''}</td><td class="sc">${sc}</td></tr>`;
   }).join('');
 
@@ -181,7 +183,7 @@ ${g.settings.diagnosticsEnabled ? `<h3>Диагностика</h3><div class="co
 <div class="page"></div>
 <h2>Итоговый портфель мер</h2>
 <table><tr><th>Мера</th><th>Режим</th><th class="r">Уплачено, у.е.</th><th>Триггер / обоснование</th><th>Сценарии</th></tr>${portfolioRows || '<tr><td colspan="5" class="empty">мер нет</td></tr>'}</table>
-<div class="sub">Сценарии: жирная цифра — команда отметила меру полезной в этом сценарии. Незапущенная условная мера даёт ${Math.round(data.rules.conditionalShare * 100)}% эффекта (округление к нулю).</div>
+<div class="sub">Сценарии: жирная цифра — команда отметила меру полезной в этом сценарии. Незапущенная условная и снятая мера дают половину эффекта (округление к нулю: +2 → +1, +1 → 0). «Уплачено» — за вычетом возврата.</div>
 
 <h2>Джокеры</h2>
 ${negJ ? `<div class="joker"><b>${negJ.code} «${esc(negJ.name)}»</b> (негативный). ${esc(negJ.description)}<div>Цена: <b>${esc(ev.neg?.explanation)}</b></div></div>` : ''}

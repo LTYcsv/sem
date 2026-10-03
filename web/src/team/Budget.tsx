@@ -6,7 +6,7 @@ import { FinishBar } from './Steps';
 import type { Act, StepProps } from './TeamApp';
 
 const STATUS: Record<string, string> = {
-  full: 'полная', grant: 'запущена джокером', conditional: 'условная', launched: 'запущена', notLaunched: 'не запущена', cancelled: 'отказ',
+  full: 'полная', grant: 'запущена джокером', conditional: 'условная', launched: 'запущена', notLaunched: 'не запущена', cancelled: 'снята',
 };
 
 export function BalancePanel({ v, title = 'Баланс' }: { v: TeamView; title?: string }) {
@@ -99,11 +99,15 @@ function MeasureCard({ m, row, v, act, toast }: { m: PublicMeasure; row?: Portfo
             <button className={cur === 'conditional' ? 'on' : ''} disabled={!m.conditionalAllowed || (cur !== 'conditional' && reserve < m.now)} onClick={() => set('conditional')}>Условная · {m.now}</button>
           </div>
         ) : <span />}
-        {row?.cancellable && <button className="btn sm" onClick={() => setConfirm(true)}>Отказаться от условной</button>}
+        {row?.cancellable && <button className="btn sm" onClick={() => setConfirm(true)}>Снять меру{row.status === 'full' ? ` (возврат ${row.refundIfRemoved})` : ''}</button>}
+        {row?.locked && <span className="badge info" title="Мера снизила цену негативного джокера">🔒 покрыла джокер — снимать нельзя</span>}
       </div>
       {row && row.status !== 'cancelled' && <MarksEditor row={row} v={v} act={act} editable={round !== null} />}
-      {confirm && <Confirm danger yes="Отказаться" onNo={() => setConfirm(false)} onYes={cancel}
-        text={<><b>Отказаться от {m.code}?</b><p>Подготовка <b>{row!.paid} у.е.</b> не вернётся, эффекта меры не будет. Это нельзя отменить.</p></>} />}
+      {confirm && <Confirm danger yes="Снять" onNo={() => setConfirm(false)} onYes={cancel}
+        text={<><b>Снять {m.code}?</b>{row!.status === 'full'
+          ? <p>Вернётся <b>{row!.refundIfRemoved} у.е.</b> ({v.rules.refundPct}% цены). Эффект меры урежется: +2 → +1, +1 → 0.</p>
+          : <p>«Позже» ({row!.laterDue} у.е.) платить не придётся, но «Сейчас» (<b>{row!.paid} у.е.</b>) не вернётся. Эффект меры урежется: +2 → +1, +1 → 0.</p>}
+          <p className="muted">Снятую меру нельзя вернуть.</p></>} />}
     </div>
   );
 }
@@ -122,12 +126,16 @@ export function BudgetStep(p: StepProps) {
           <div className="card">
             <h2>{titles[round]}</h2>
             {round === 0 ? (
-              <p className="muted">Для каждой меры выберите режим. <b>Полная</b> — платите всё сейчас, полный эффект. <b>Условная</b> — платите «Сейчас», а «Позже» — только на закрытии, если сработает триггер; без запуска мера даёт половину эффекта. Подготовленные меры удешевляют реакцию на неожиданные события. На этом шаге нельзя потратить больше 100 у.е.</p>
+              <p className="muted">Для каждой меры выберите режим. <b>Полная</b> — платите всё сейчас, полный эффект; <b>минимум {v.rules.minFull} меры должны быть полными</b>. <b>Условная</b> — платите «Сейчас», а «Позже» — только на закрытии, если сработает триггер; без запуска мера даёт половину эффекта. Подготовленные меры удешевляют реакцию на неожиданные события. На этом шаге нельзя потратить больше 100 у.е.</p>
             ) : (
-              <p className="muted">Можно докупить меры <b>на оставшийся резерв</b> и отказаться от условной меры прошлых шагов (подготовка не возвращается). Полную меру отменить нельзя. Отметки сценариев и триггеры можно уточнить.</p>
+              <p className="muted">Можно докупить меры <b>на резерв</b> и снять меры прошлых шагов: полная — вернётся {v.rules.refundPct}% цены; условная — «Позже» не платится, «Сейчас» не возвращается. У снятой меры эффект урезается (+2 → +1, +1 → 0). <b>Меры, которые удешевили негативный джокер, снять нельзя.</b></p>
             )}
             {round > 0 && v.negJoker && <div className="alert err small">Негативный джокер <b>{v.negJoker.code} «{v.negJoker.name}»</b>: {v.negJoker.explanation}</div>}
             {round === 2 && v.posJoker && <div className="alert info small">Джокер <b>{v.posJoker.code} «{v.posJoker.name}»</b>: {v.posJoker.used ? 'использован' : 'не использован'}.</div>}
+            {round === 0 && v.rules.minFull > 0 && (() => {
+              const n = v.portfolio.filter((r) => r.status === 'full').length;
+              return <div className={`alert ${n >= v.rules.minFull ? 'info' : 'warn'} small`}>Полных мер: <b>{n}</b> из минимум {v.rules.minFull}</div>;
+            })()}
             <div className="filters">
               <button className={`btn sm ${filter === 'all' ? 'primary' : ''}`} onClick={() => setFilter('all')}>Все меры ({v.catalog.length})</button>
               <button className={`btn sm ${filter === 'mine' ? 'primary' : ''}`} onClick={() => setFilter('mine')}>В портфеле ({v.portfolio.filter((r) => r.status !== 'cancelled').length})</button>

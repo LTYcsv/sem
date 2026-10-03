@@ -122,10 +122,12 @@ async function worker(cityId: string) {
           const ms = data.measures.find((x) => x.code === cc)!;
           return a + (mm === 'full' ? ms.full : ms.now);
         }, 0);
-        if (spent <= data.rules.startBudget) yield { ...s, init };
+        const fulls = Object.values(init).filter((x) => x === 'full').length;
+        if (spent <= data.rules.startBudget && fulls >= (data.rules.minFullMeasures ?? 0)) yield { ...s, init };
       }
     }
     for (const keep of [0, 5, 10, 15, 20, 30, Infinity]) if (keep !== s.keep) yield { ...s, keep };
+    for (const drop of ['none', 'deficit', 'unlocked'] as const) if (drop !== s.drop) yield { ...s, drop };
     for (const closing of ['none', 'affordable', 'all'] as const) if (closing !== s.closing) yield { ...s, closing };
     for (const usePos of ['always', 'freeOnly', 'never'] as const) if (usePos !== s.usePos) yield { ...s, usePos };
     yield { ...s, corrMode: s.corrMode === 'full' ? 'conditional' : 'full' };
@@ -160,7 +162,7 @@ async function worker(cityId: string) {
   // --- регрессия: ожидаемая Δ ~ режимы мер + политики
   const feats: string[] = [];
   for (const c of codes) { feats.push(`${c}:full`); if (data.measures.find((m) => m.code === c)!.conditionalAllowed) feats.push(`${c}:cond`); }
-  feats.push('closing:affordable', 'closing:all', 'keep:finite', 'usePos:always', 'usePos:freeOnly', 'corr:conditional');
+  feats.push('closing:affordable', 'closing:all', 'keep:finite', 'usePos:always', 'usePos:freeOnly', 'corr:conditional', 'drop:deficit', 'drop:unlocked');
   const X = (s: Strategy) => {
     const x = [1];
     for (const f of feats) {
@@ -170,6 +172,7 @@ async function worker(cityId: string) {
       else if (a === 'keep') x.push(Number.isFinite(s.keep) ? 1 : 0);
       else if (a === 'usePos') x.push(s.usePos === b ? 1 : 0);
       else if (a === 'corr') x.push(s.corrMode === 'conditional' ? 1 : 0);
+      else if (a === 'drop') x.push(s.drop === b ? 1 : 0);
     }
     return x;
   };
@@ -353,7 +356,7 @@ function report(data: GameData, R: CityRes[], secs: number): string {
   for (const r of R) {
     const b = r.best;
     const port = Object.entries(b.strategy.init).map(([c, m]) => `${c}${m === 'full' ? '' : '(усл.)'}`).join(', ');
-    L.push(`- **${name(r.cityId)}**: Δ = ${f2(b.value)}; портфель: ${port || '—'}; докупка: ${b.strategy.keep === 'Infinity' ? 'нет' : 'оставлять ' + b.strategy.keep} (${b.strategy.corrMode === 'full' ? 'полные' : 'условные'}); закрытие: ${b.strategy.closing}; положительный джокер: ${b.strategy.usePos}; доля партий с дефицитом ${pc(b.eval.deficitShare)}, средний дефицит ${f1(b.eval.meanDeficit)} у.е.`);
+    L.push(`- **${name(r.cityId)}**: Δ = ${f2(b.value)}; портфель: ${port || '—'}; снятие после джокера: ${b.strategy.drop}; докупка: ${b.strategy.keep === 'Infinity' ? 'нет' : 'оставлять ' + b.strategy.keep} (${b.strategy.corrMode === 'full' ? 'полные' : 'условные'}); закрытие: ${b.strategy.closing}; положительный джокер: ${b.strategy.usePos}; доля партий с дефицитом ${pc(b.eval.deficitShare)}, средний дефицит ${f1(b.eval.meanDeficit)} у.е.`);
     for (const o of b.others.slice(0, 2)) L.push(`  - другой локальный оптимум: Δ = ${f2(o.value)}; ${Object.entries(o.init).map(([c, m]) => `${c}${m === 'full' ? '' : '(усл.)'}`).join(', ')}; закрытие ${o.closing}`);
   }
   L.push('');
@@ -392,7 +395,7 @@ function report(data: GameData, R: CityRes[], secs: number): string {
     L.push(`| ${m.code} ${m.name} | ${m.full} (${m.now}+${m.later}) | ${cf.map(f2).join(' | ')} | ${cc.map((x) => (x == null ? '—' : f2(x))).join(' | ')} | ${f2(perUe)} | ${pc(top)} | ${jokerRefs(m.code).join(', ') || '—'} |`);
   }
   L.push('');
-  L.push('Политики: ' + ['closing:affordable', 'closing:all', 'keep:finite', 'usePos:always', 'usePos:freeOnly', 'corr:conditional']
+  L.push('Политики: ' + ['closing:affordable', 'closing:all', 'keep:finite', 'usePos:always', 'usePos:freeOnly', 'corr:conditional', 'drop:deficit', 'drop:unlocked']
     .map((f) => `${f} = ${R.map((r) => f2(r.coef[f])).join(' / ')}`).join('; ') + ' (по городам).', '');
 
   L.push('## 6. Джокеры: средняя Δ случайных стратегий при выпадении джокера', '');

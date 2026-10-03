@@ -14,7 +14,7 @@ export type ItemStatus =
   | 'conditional' // подготовлена, решение о запуске ещё не принято
   | 'launched' // условная, запущена на закрытии
   | 'notLaunched' // условная, не запущена на закрытии (половина эффекта)
-  | 'cancelled'; // отказ от условной меры (подготовка потеряна, эффекта нет)
+  | 'cancelled'; // снята в корректировке: полная — возврат части цены, условная — «Позже» не платится; эффект урезан
 
 export interface Item {
   code: string;
@@ -26,6 +26,8 @@ export interface Item {
   /** «Позже» после скидок (для условных). */
   laterDue: number;
   laterDiscount: number;
+  /** Возврат при снятии полной меры. */
+  refund: number;
   effects: Vector;
 }
 
@@ -94,6 +96,8 @@ export interface Evaluation {
   forecastPenalty: number;
   neg?: NegCost;
   pos?: PosOffer & { used: boolean; decided: boolean; measure?: string };
+  /** Меры, удешевившие негативный джокер: снимать нельзя. */
+  locked: string[];
   /** Расходы шага «Бюджет» (нельзя больше стартового бюджета). */
   budgetSpent: number;
   errors: string[];
@@ -251,18 +255,29 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
       const price = mode === 'full' ? ms.full : ms.now;
       items.set(code, {
         code, initialMode: mode, round, status: mode === 'full' ? 'full' : 'conditional', paid: price,
-        laterDue: mode === 'full' ? 0 : ms.later, laterDiscount: 0, effects: zero(),
+        laterDue: mode === 'full' ? 0 : ms.later, laterDiscount: 0, refund: 0, effects: zero(),
       });
       pay(stage, price, () => mode === 'full' ? `${code} «${ms.name}» — полная` : `${code} «${ms.name}» — подготовка (Сейчас)`, code);
     }
   };
+  let locked = new Set<string>();
+  const refundShare = rules.fullRefundShare ?? 0;
   const cancel = (idx: 0 | 1, stage: Stage) => {
     for (const code of d.cancels[idx] ?? []) {
       const it = items.get(code);
-      if (!it || it.status !== 'conditional') { errors.push(`Отменить можно только условную меру (${code})`); continue; }
+      if (!it || (it.status !== 'conditional' && it.status !== 'full')) { errors.push(`Снять можно только полную или условную меру из портфеля (${code})`); continue; }
+      if (locked.has(code)) { errors.push(`${code} удешевила негативный джокер — снимать нельзя`); continue; }
+      if (it.status === 'full') {
+        const refund = Math.floor(m(code).full * refundShare);
+        it.refund = refund;
+        it.paid -= refund;
+        reserve += refund;
+        if (texts) ledger.push({ stage, text: `${code} — полная мера снята: возврат ${Math.round(refundShare * 100)}% (${refund} у.е.), эффект урезан`, amount: refund, balance: reserve, measure: code });
+      } else {
+        note(stage, () => `${code} — условная мера снята: «Позже» не платится, «Сейчас» ${it.paid} у.е. не возвращается, эффект урезан`, code);
+      }
       it.status = 'cancelled';
       it.laterDue = 0;
-      note(stage, () => `${code} — отказ от условной меры (подготовка ${it.paid} у.е. не возвращается)`, code);
     }
   };
   const activeSet = () => new Set([...items.values()].filter((i) => i.status !== 'cancelled').map((i) => i.code));
@@ -280,11 +295,12 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
     const nc = negativeCost(j, activeSet(), texts);
     neg = nc;
     pay('neg', nc.cost, () => `Джокер ${j.code} «${j.name}»: ${nc.explanation}`);
+    if (nc.applied && nc.cost < nc.base) locked = new Set(nc.applied);
   }
 
   // 3. Корректировка 1
-  const r1Start = reserve;
   cancel(0, 'corr1');
+  const r1Start = reserve;
   addRound(1, 'corr1');
   if (r1Start - reserve > Math.max(0, r1Start)) errors.push('В корректировке 1 потрачено больше резерва');
 
@@ -313,7 +329,7 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
             if (it) {
               it.status = 'grant'; it.laterDue = 0; it.paid += r.ownCost;
             } else {
-              items.set(code, { code, initialMode: 'full', round: 'pos', status: 'grant', paid: r.ownCost, laterDue: 0, laterDiscount: 0, effects: zero() });
+              items.set(code, { code, initialMode: 'full', round: 'pos', status: 'grant', paid: r.ownCost, laterDue: 0, laterDiscount: 0, refund: 0, effects: zero() });
             }
             pay('pos', r.ownCost, () => `Джокер ${j.code} «${j.name}»: ${code} «${ms.name}» запущена полностью, команда платит ${r.ownCost}, грант покрывает ${ch.grantCovers}`, code);
           }
@@ -321,7 +337,7 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
           used = true;
           const ms = m(r.measure);
           const prev = items.get(r.measure); // отменённая ранее мера запускается заново
-          items.set(r.measure, { code: r.measure, initialMode: 'full', round: 'pos', status: 'grant', paid: (prev?.paid ?? 0) + r.launchCost, laterDue: 0, laterDiscount: 0, effects: zero() });
+          items.set(r.measure, { code: r.measure, initialMode: 'full', round: 'pos', status: 'grant', paid: (prev?.paid ?? 0) + r.launchCost, laterDue: 0, laterDiscount: 0, refund: 0, effects: zero() });
           pay('pos', r.launchCost, () => `Джокер ${j.code} «${j.name}»: ${r.measure} «${ms.name}» запущена сразу`, r.measure);
         } else {
           used = true;
@@ -339,8 +355,8 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
   }
 
   // 5. Корректировка 2
-  const r2Start = reserve;
   cancel(1, 'corr2');
+  const r2Start = reserve;
   addRound(2, 'corr2');
   if (r2Start - reserve > Math.max(0, r2Start)) errors.push('В корректировке 2 потрачено больше резерва');
 
@@ -377,7 +393,7 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
   for (const it of items.values()) {
     const e = m(it.code).effects;
     it.effects =
-      it.status === 'cancelled' ? zero()
+      it.status === 'cancelled' ? partialEffects(e, rules.removedEffectShare ?? 0)
       : it.status === 'conditional' || it.status === 'notLaunched' ? partialEffects(e, rules.conditionalShare)
       : { ...e };
   }
@@ -390,7 +406,7 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
 
   const ev: Evaluation = {
     items: [...items.values()], ledger, reserve, spent, laterCommitments, forecast, forecastPenalty: penaltyFor(forecast),
-    neg, pos, budgetSpent, errors,
+    neg, pos, budgetSpent, errors, locked: [...locked],
   };
   if (d.closing) {
     ev.final = finalResult(data, city, ev, bonus);

@@ -315,7 +315,7 @@ if (existsSync(overridesPath)) {
   const o = JSON.parse(readFileSync(overridesPath, 'utf8'));
   for (const [k, v] of Object.entries(o)) {
     if (k.startsWith('_')) continue;
-    if (!(k in rules) && !['penaltySpill', 'closingNoDebt'].includes(k)) throw new Error(`rules_overrides.json: неизвестный параметр ${k}`);
+    if (!(k in rules) && !['penaltySpill', 'closingNoDebt', 'minFullMeasures', 'fullRefundShare', 'removedEffectShare'].includes(k)) throw new Error(`rules_overrides.json: неизвестный параметр ${k}`);
     const before = (rules as any)[k];
     if (before === v) continue;
     (rules as any)[k] = v;

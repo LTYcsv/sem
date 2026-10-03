@@ -82,15 +82,15 @@ describe('условные меры', () => {
     expect(m6.status).toBe('notLaunched');
     expect(m6.effects).toEqual({ econ: 1, social: 0, infra: 0, eco: 0, human: 0, adapt: 0 });
   });
-  it('отказ от условной меры: подготовка не возвращается, эффекта нет, для джокера меры «нет»', () => {
+  it('снятие условной меры: «Сейчас» не возвращается, «Позже» не платится, эффект урезан, для джокера меры «нет»', () => {
     const ev = evaluate(data, dec('Промград', {
-      rounds: [{ M13: 'conditional' }, {}, {}], cancels: [['M13'], []], negJoker: 'J-1', posJoker: 'J+7', posDecision: { use: true }, closing: {},
+      rounds: [{ M13: 'conditional' }, {}, {}], cancels: [['M13'], []], negJoker: 'J-7', posJoker: 'J+7', posDecision: { use: true }, closing: {},
     }));
     const it13 = ev.items.find((i) => i.code === 'M13')!;
     expect(it13.status).toBe('cancelled');
-    expect(it13.effects.eco).toBe(0);
-    expect(ev.neg!.cost).toBe(15); // джокер открыт до отказа — M13 ещё была
-    expect(ev.pos!.available).toBe(false); // J+7 после отказа недоступен
+    expect(it13.effects).toEqual({ econ: 0, social: 0, infra: 0, eco: 1, human: 0, adapt: 0 }); // +2 → +1, +1 → 0
+    expect(ev.laterCommitments).toBe(0);
+    expect(ev.pos!.available).toBe(false); // J+7 после снятия недоступен
     expect(ev.reserve).toBe(100 - 5 - 15);
   });
   it('M4 нельзя сделать условной', () => {
@@ -245,5 +245,43 @@ describe('принятая правка: шаг 4 и перенос штрафа
     // без переноса тот же портфель даёт заметно больший прирост — именно это и закрывает правка
     const evOld = evaluate(data, dec('Моноград', { rounds: [allCond, {}, {}], negJoker: 'J-4', posJoker: 'J0', closing }));
     expect(evOld.final!.deltaSum).toBeGreaterThan(f.deltaSum + 10);
+  });
+});
+
+describe('снятие мер в корректировке (правила 03.10.2026)', () => {
+  it('в данных: минимум 2 полные, возврат 80%, эффект снятой меры 50%', () => {
+    expect(loaded.rules.minFullMeasures).toBe(2);
+    expect(loaded.rules.fullRefundShare).toBe(0.8);
+    expect(loaded.rules.removedEffectShare).toBe(0.5);
+  });
+  it('снятие полной меры: возврат 80% вниз до целого, эффект +2 → +1, +1 → 0, −1 → 0', () => {
+    // M6: 18 у.е., эффекты (2,1,1,−1,1,0); 18 × 0,8 = 14,4 → 14
+    const ev = evaluate(data, dec('Моноград', { rounds: [{ M6: 'full', M4: 'full' }, {}, {}], cancels: [['M6'], []], negJoker: 'J-7' }));
+    const it6 = ev.items.find((i) => i.code === 'M6')!;
+    expect(it6.refund).toBe(14);
+    expect(it6.paid).toBe(4);
+    expect(ev.reserve).toBe(100 - 18 - 15 - 15 + 14);
+    expect(it6.effects).toEqual({ econ: 1, social: 0, infra: 0, eco: 0, human: 0, adapt: 0 });
+    expect(ev.ledger.some((l) => l.amount === 14 && /возврат 80%/.test(l.text))).toBe(true);
+  });
+  it('меры, удешевившие негативный джокер, снять нельзя', () => {
+    const ev = evaluate(data, dec('Промград', { rounds: [{ M3: 'full', M13: 'conditional', M2: 'full' }, {}, {}], cancels: [['M3', 'M2'], []], negJoker: 'J-1' }));
+    expect(ev.locked.sort()).toEqual(['M13', 'M3']);
+    expect(ev.errors.join()).toMatch(/M3 удешевила негативный джокер/);
+    expect(ev.items.find((i) => i.code === 'M3')!.status).toBe('full');
+    expect(ev.items.find((i) => i.code === 'M2')!.status).toBe('cancelled'); // M2 на паводок не влияет
+  });
+  it('мера, которая сделала джокер дороже (M10 без M4), не блокируется', () => {
+    const ev = evaluate(data, dec('Промград', { rounds: [{ M10: 'full', M2: 'full' }, {}, {}], negJoker: 'J-2' }));
+    expect(ev.neg!.cost).toBe(20);
+    expect(ev.locked).toEqual([]);
+  });
+  it('возврат увеличивает резерв, доступный для докупки в той же корректировке', () => {
+    // 100 − 30 − 30 − 30 = 10; J-7 → −5; снятие M16 (+24) → 19; докупка M2 полной (20) — не хватает, M13 (20) — нет, M4 (15) — да
+    const ok = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M16: 'full' }, { M4: 'full' }, {}], cancels: [['M16'], []], negJoker: 'J-7' }));
+    expect(ok.errors).toEqual([]);
+    expect(ok.reserve).toBe(4);
+    const bad = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M16: 'full' }, { M2: 'full' }, {}], cancels: [['M16'], []], negJoker: 'J-7' }));
+    expect(bad.errors.join()).toMatch(/больше резерва/);
   });
 });
