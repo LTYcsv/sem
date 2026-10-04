@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { evaluate, emptyDecisions, negativeCost, partialEffects, validateData } from '../src/index.ts';
+import { benchKey, dataHash, evaluate, emptyDecisions, gradeResult, negativeCost, partialEffects, percentileOf, validateData } from '../src/index.ts';
+import type { BenchPair, Benchmarks } from '../src/index.ts';
 import type { Decisions, GameData, NegativeJoker } from '../src/index.ts';
 
 const loaded: GameData = JSON.parse(readFileSync(new URL('../../data/game_data.json', import.meta.url), 'utf8'));
@@ -291,5 +292,37 @@ describe('снятие мер в корректировке (правила 03.1
     expect(ok.reserve).toBe(8);
     const bad = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M16: 'full' }, { M4: 'full' }, {}], cancels: [['M16'], []], negJoker: 'J-7' }));
     expect(bad.errors.join()).toMatch(/больше резерва/);
+  });
+});
+
+describe('Эталоны и оценка результата (PDF)', () => {
+  const q = Array.from({ length: 101 }, (_, i) => i / 5); // 0…20, медиана 10, 90-й перцентиль 18
+  const pair = { q, hindsight: { delta: 22 }, robust: { delta: 19 } } as unknown as BenchPair;
+  it('перцентиль считается по таблице квантилей', () => {
+    expect(percentileOf(q, -1)).toBe(0);
+    expect(percentileOf(q, 10)).toBeCloseTo(0.5);
+    expect(percentileOf(q, 25)).toBe(1);
+  });
+  it('шкала 1–10: медиана — 5, 90-й перцентиль — 8, лучший вариант — 10', () => {
+    expect(gradeResult(0, pair).score).toBe(1);
+    expect(gradeResult(10, pair).score).toBe(5);
+    expect(gradeResult(18, pair).score).toBe(8);
+    expect(gradeResult(22, pair).score).toBe(10);
+    expect(gradeResult(25, pair).score).toBe(10);
+    expect(gradeResult(18, pair).gap).toBe(4);
+    expect(gradeResult(10, pair).level).toBe('средний результат');
+  });
+  it('data/benchmarks.json посчитан для текущих правил и покрывает все пары', () => {
+    const b: Benchmarks = JSON.parse(readFileSync(new URL('../../data/benchmarks.json', import.meta.url), 'utf8'));
+    expect(b.dataHash, 'правила изменились — выполните npm run benchmarks').toBe(dataHash(loaded));
+    const negs = loaded.jokers.filter((j) => j.basket === 'negative');
+    const poss = loaded.jokers.filter((j) => j.basket === 'positive');
+    for (const c of loaded.cities) for (const n of negs) for (const p of poss) {
+      const v = b.table[benchKey(c.id, n.code, p.code)];
+      expect(v, `${c.name} ${n.code} ${p.code}`).toBeTruthy();
+      // лучший вариант при известных джокерах не хуже устойчивого и воспроизводится движком
+      expect(v.hindsight.delta).toBeGreaterThanOrEqual(v.robust.delta);
+      expect(evaluate(loaded, v.hindsight.decisions).final!.deltaSum).toBe(v.hindsight.delta);
+    }
   });
 });

@@ -305,6 +305,7 @@ async function main() {
     const text = execFileSync('pdftotext', ['-enc', 'UTF-8', pdfPath, '-']).toString('utf8');
     check(text.includes('УЧЕБНЫЕ ДАННЫЕ') && text.includes('Рост города') && text.includes('Индекс города') && text.includes('Альфа'), 'русский текст в PDF извлекается (pdftotext)');
     check(text.includes('Иванов И.'), 'участники команды в PDF');
+    check(text.includes('Стартовая позиция города') && text.includes('Лучшие возможные варианты') && /\d+\s*\/ 10/.test(text), 'в PDF есть стартовая позиция, лучшие варианты и оценка');
   } else console.log('  · pdftotext не найден — проверка извлечения текста пропущена');
   const zip = await fetch(`${BASE}/api/admin/all.zip?t=${adminToken}`);
   const zipBuf = Buffer.from(await zip.arrayBuffer());

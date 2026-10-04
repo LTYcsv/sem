@@ -9,7 +9,7 @@
     "web"
   ],
   "scripts": {
-    "data": "tsx scripts/build-data.ts",
+    "data": "tsx scripts/build-data.ts && npm run benchmarks",
     "test": "vitest run",
     "sim": "tsx engine/sim/simulate.ts",
     "build": "npm run build -w web",
@@ -18,7 +18,8 @@
     "dev": "concurrently -k -n server,web \"tsx watch server/src/main.ts\" \"npm run dev -w web\"",
     "e2e": "tsx scripts/e2e.ts",
     "ui-smoke": "tsx scripts/ui-smoke.ts",
-    "typecheck": "tsc -p engine && tsc -p server && tsc -p web --noEmit"
+    "typecheck": "tsc -p engine && tsc -p server && tsc -p web --noEmit",
+    "benchmarks": "tsx engine/sim/benchmarks.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
