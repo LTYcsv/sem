@@ -99,13 +99,18 @@ export interface PortfolioRow {
   trigger: string;
 }
 
-/** Ошибки, мешающие нажать «Готово». Пустой список = шаг можно завершить. */
-export function validateStep(phase: Phase, inputs: Inputs, opts: { diagnosticsEnabled: boolean; portfolio: PortfolioRow[]; posDecided?: boolean; posAvailable?: boolean; minFull?: number }): string[] {
+/**
+ * Проверка шага перед «Готово».
+ * errors — правила игры, без них шаг завершить нельзя (только «минимум N полных мер»);
+ * warnings — что не заполнено: подсказка, перейти можно (незаполненное обрабатывается как при окончании таймера).
+ */
+export function validateStep(phase: Phase, inputs: Inputs, opts: { diagnosticsEnabled: boolean; portfolio: PortfolioRow[]; posDecided?: boolean; posAvailable?: boolean; minFull?: number }): { errors: string[]; warnings: string[] } {
+  const errors: string[] = [];
   const e: string[] = [];
   if (phase === 'city' && opts.diagnosticsEnabled) {
     for (const k of Object.keys(DIAG_SLOTS) as (keyof typeof DIAG_SLOTS)[]) {
       const n = inputs.diagnostics[k].filter(filled).length;
-      if (n < DIAG_SLOTS[k][0]) e.push(`${DIAG_LABELS[k]}: заполните минимум ${DIAG_SLOTS[k][0]} (сейчас ${n})`);
+      if (n < DIAG_SLOTS[k][0]) e.push(`${DIAG_LABELS[k]}: рекомендуем минимум ${DIAG_SLOTS[k][0]} (сейчас ${n})`);
     }
   }
   if (phase === 'matrix') {
@@ -119,12 +124,12 @@ export function validateStep(phase: Phase, inputs: Inputs, opts: { diagnosticsEn
     inputs.scenarios.forEach((s, i) => {
       if (!filled(s.title)) e.push(`Сценарий ${i + 1}: нет названия`);
       const n = countSentences(s.text);
-      if (n < 3) e.push(`Сценарий ${i + 1}: нужно минимум 3 предложения (сейчас ${n})`);
+      if (n < 3) e.push(`Сценарий ${i + 1}: рекомендуем 3 предложения (сейчас ${n})`);
     });
   }
   if (phase === 'budget' && opts.minFull) {
     const n = opts.portfolio.filter((r) => r.status === 'full').length;
-    if (n < opts.minFull) e.push(`Нужно минимум ${opts.minFull} полные меры (сейчас ${n})`);
+    if (n < opts.minFull) errors.push(`Нужно минимум ${opts.minFull} полные меры (сейчас ${n})`);
   }
   if (phase === 'budget' || phase === 'corr1' || phase === 'corr2') {
     for (const r of opts.portfolio) {
@@ -133,12 +138,12 @@ export function validateStep(phase: Phase, inputs: Inputs, opts: { diagnosticsEn
       if (r.mode === 'conditional' && (r.status === 'conditional') && !filled(r.trigger)) e.push(`${r.code}: для условной меры нужен триггер`);
     }
   }
-  if (phase === 'jokerPos' && opts.posAvailable && !opts.posDecided) e.push('Решите: использовать джокер или пропустить');
+  if (phase === 'jokerPos' && opts.posAvailable && !opts.posDecided) e.push('Джокер не использован — при переходе он будет пропущен');
   if (phase === 'closing') {
     for (const r of opts.portfolio) {
       if (r.status !== 'conditional') continue;
       const c = inputs.closing[r.code];
-      if (!c || c.launch === null) e.push(`${r.code}: решите — запускаем или нет`);
+      if (!c || c.launch === null) e.push(`${r.code}: не решено, запускаем или нет — при переходе мера не запускается`);
       else if (countSentences(c.reason) < 1 && words(c.reason) < 3) e.push(`${r.code}: обоснуйте решение триггером (1–2 предложения)`);
     }
   }
@@ -147,7 +152,7 @@ export function validateStep(phase: Phase, inputs: Inputs, opts: { diagnosticsEn
     if (!filled(inputs.defense.joker)) e.push('Самый значимый джокер: не заполнено');
     if (!filled(inputs.defense.lesson)) e.push('Главный урок: не заполнено');
   }
-  return e;
+  return { errors, warnings: e };
 }
 
 // ---------- представления ----------
@@ -192,7 +197,10 @@ export interface TeamView {
   negJoker: (JokerCard & { cost: number; base: number; explanation: string }) | null;
   posJoker: (JokerCard & { offer: PosOffer; decided: boolean; used: boolean; measure?: string; bonusText: string }) | null;
   closingPreview: { reserve: number; deficit: number; penalty: number } | null;
+  /** Блокируют «Готово». */
   stepErrors: string[];
+  /** Не заполнено — подсказка, перейти можно. */
+  stepWarnings: string[];
   pdfReady: boolean;
 }
 
@@ -216,6 +224,7 @@ export interface AdminTeam {
   posJoker: TeamView['posJoker'];
   final: Evaluation['final'] | null;
   stepErrors: string[];
+  stepWarnings: string[];
 }
 
 export interface AdminView {

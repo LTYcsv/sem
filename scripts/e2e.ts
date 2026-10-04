@@ -124,8 +124,8 @@ async function main() {
   check(teams[0].state!.city!.situation.length > 50 && teams[0].state!.city!.signals.length === 6, 'карточка города: ситуация и 6 сигналов');
 
   console.log('\n[4] Диагностика, матрица (с проверкой таймера), сценарии');
-  let r = await teams[0].act({ type: 'finish' });
-  check(!r.ok && r.errors!.length > 0, `«Готово» без диагностики не проходит (${r.errors!.length} замечания)`);
+  let r: Awaited<ReturnType<typeof teams[0]['act']>>;
+  check(teams[0].state!.stepErrors.length === 0 && teams[0].state!.stepWarnings.length > 0, `пустая диагностика не блокирует, а подсказывает (подсказок: ${teams[0].state!.stepWarnings.length})`);
   for (const t of teams) {
     await t.act({ type: 'saveInputs', section: 'diagnostics', data: { trends: ['Старение', 'Автоматизация', 'Удалёнка', ''], drivers: ['Инвестиции', 'Миграция', ''], weakSignals: ['Коворкинг', ''], problems: ['Отток', 'Износ', 'Бюджет'] } });
     r = await t.act({ type: 'finish' });
@@ -144,10 +144,10 @@ async function main() {
   for (const [i, t] of teams.entries()) {
     await t.act({ type: 'saveInputs', section: 'scenarios', data: [0, 1, 2, 3].map((k) => ({ title: `Сценарий ${k + 1}`, text: sentences(k === 3 && i === 0 ? 2 : 3, String(k + 1)) })) });
   }
-  r = await teams[0].act({ type: 'finish' });
-  check(!r.ok && r.errors!.some((e) => /Сценарий 4: нужно минимум 3 предложения \(сейчас 2\)/.test(e)), 'сервер отклоняет сценарий из 2 предложений');
-  await teams[0].act({ type: 'saveInputs', section: 'scenarios', data: [0, 1, 2, 3].map((k) => ({ title: `Сценарий ${k + 1}`, text: sentences(3, String(k + 1)) })) });
+  await teams[0].until((s) => s.stepWarnings.some((e) => /Сценарий 4: рекомендуем 3 предложения \(сейчас 2\)/.test(e)));
+  check(teams[0].state!.stepErrors.length === 0, 'сценарий из 2 предложений — подсказка, а не запрет');
   for (const t of teams) r = await t.act({ type: 'finish' });
+  check(r.ok, 'команда с коротким сценарием переходит дальше');
   await Promise.all(teams.map((t) => t.until((s) => s.team.phase === 'budget')));
   check(teams.every((t) => t.state!.team.phase === 'budget'), 'все на шаге «Бюджет»');
 
@@ -275,8 +275,7 @@ async function main() {
     if (!r.ok) console.log('    corr2', r.errors);
   }
   await Promise.all(teams.map((t) => t.until((s) => s.team.phase === 'closing')));
-  r = await teams[0].act({ type: 'finish' });
-  check(!r.ok && r.errors!.some((e) => /запускаем или нет/.test(e)), 'закрытие требует решения по каждой условной мере');
+  check(teams[0].state!.stepErrors.length === 0 && teams[0].state!.stepWarnings.some((e) => /запускаем или нет/.test(e)), 'закрытие подсказывает про нерешённые условные меры, но не блокирует');
   for (const t of teams) {
     const pending = t.state!.portfolio.filter((p) => p.status === 'conditional');
     for (const [k, p] of pending.entries()) await t.act({ type: 'closingSet', code: p.code, launch: k % 2 === 0, reason: k % 2 === 0 ? 'Триггер сработал: порог превышен в двух сценариях.' : 'Триггер не сработал, мера остаётся в резерве.' });

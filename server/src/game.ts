@@ -283,7 +283,7 @@ export class GameManager {
       }
       case 'finish': {
         if (t.phase === 'lobby' || t.phase === 'done') throw new GameError('Нечего завершать');
-        const errors = this.stepErrors(t);
+        const errors = this.stepCheck(t).errors;
         if (errors.length) { res.errors = errors; return res; }
         this.advance(t, 'команда нажала «Готово»');
         break;
@@ -305,7 +305,7 @@ export class GameManager {
     return Object.fromEntries(Object.entries(t.inputs.closing).map(([k, v]) => [k, { launch: v.launch === true, reason: v.reason }]));
   }
 
-  stepErrors(t: TeamState): string[] {
+  stepCheck(t: TeamState): { errors: string[]; warnings: string[] } {
     const ev = evaluate(this.data, t.decisions, { texts: false });
     return validateStep(t.phase, t.inputs, {
       diagnosticsEnabled: this.game!.settings.diagnosticsEnabled,
@@ -495,7 +495,7 @@ export class GameManager {
       balance: ev ? this.balance(t, ev) : null,
       ...jokers,
       closingPreview,
-      stepErrors: t.phase === 'lobby' || t.phase === 'done' ? [] : this.stepErrors(t),
+      ...(t.phase === 'lobby' || t.phase === 'done' ? { stepErrors: [], stepWarnings: [] } : (({ errors, warnings }) => ({ stepErrors: errors, stepWarnings: warnings }))(this.stepCheck(t))),
       pdfReady: t.phase === 'done',
     };
   }
@@ -521,7 +521,7 @@ export class GameManager {
         deviceReset: t.deviceReset, phase: t.phase, deadline: t.deadline, remainingMs: tv.team.remainingMs, paused: tv.team.paused,
         city: city ? { id: city.id, name: city.name, type: city.type, general: city.general, unique: city.unique, situation: city.situation, signals: city.signals, vulnerabilities: city.vulnerabilities, start: city.start } : null,
         inputs: t.inputs, portfolio: tv.portfolio, balance: tv.balance, negJoker: tv.negJoker, posJoker: tv.posJoker,
-        final: fin?.final ?? null, stepErrors: tv.stepErrors,
+        final: fin?.final ?? null, stepErrors: tv.stepErrors, stepWarnings: tv.stepWarnings,
       };
       void ev;
     });

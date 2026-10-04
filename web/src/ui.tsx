@@ -34,10 +34,10 @@ export function Confirm({ text, onYes, onNo, yes = 'Да', danger }: { text: Rea
 
 export const EduBadge = () => <span className="badge edu">УЧЕБНЫЕ ДАННЫЕ · город вымышленный</span>;
 
-export function Errors({ list, title = 'Чтобы завершить шаг досрочно, нужно:' }: { list: string[]; title?: string }) {
+export function Errors({ list, title = 'Чтобы завершить шаг, нужно:', tone = 'warn' }: { list: string[]; title?: string; tone?: 'warn' | 'info' }) {
   if (!list.length) return null;
   return (
-    <div className="alert warn">
+    <div className={`alert ${tone}`}>
       <b>{title}</b>
       <ul>{list.map((e) => <li key={e}>{e}</li>)}</ul>
     </div>

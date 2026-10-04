@@ -78,7 +78,7 @@ function Overview({ v, act, ask, open, now }: { v: AdminView; act: Act; ask: (t:
                   {t.deviceReset && <div className="badge bad">ждёт входа с нового устройства</div>}
                   <div className="tiny">{t.members.filter(Boolean).join(', ')}</div></td>
                 <td>{t.city?.name ?? '—'}</td>
-                <td>{PHASE_LABELS[t.phase]}{t.stepErrors.length > 0 && t.phase !== 'lobby' && <div className="tiny">не хватает: {t.stepErrors.length}</div>}</td>
+                <td>{PHASE_LABELS[t.phase]}{t.stepErrors.length + t.stepWarnings.length > 0 && t.phase !== 'lobby' && <div className="tiny">не заполнено: {t.stepErrors.length + t.stepWarnings.length}</div>}</td>
                 <td className="r mono">{t.phase === 'lobby' || t.phase === 'done' ? '—' : <>{t.paused ? '⏸ ' : ''}{fmtTime(ms)}</>}</td>
                 <td className={`r mono ${t.balance && t.balance.reserve < 0 ? 'neg' : ''}`}>{t.balance ? money(t.balance.reserve) : '—'}</td>
                 <td className={`r mono ${t.balance && t.balance.forecast < 0 ? 'neg' : ''}`}>{t.balance ? money(t.balance.forecast) : '—'}</td>
