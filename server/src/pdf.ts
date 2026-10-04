@@ -108,6 +108,8 @@ h3{font-size:12.5pt;margin:4mm 0 1.5mm}
 .tile{border:1px solid #d9d8d3;border-radius:6px;padding:3mm}
 .defense ol{margin-bottom:0}
 .tile .k{font-size:9.5pt;color:#52514e}.tile .v{font-size:20pt;font-weight:700;line-height:1.1}.tile .s{font-size:9.5pt;color:#52514e}
+.tile.main{border:2px solid #2a78d6;background:#f5f9fe}.tile.main .k{color:#1d5aa3;font-weight:700}.tile.main .v{font-size:26pt}
+.tile .v.sm{font-size:15pt}
 .neg{color:#b42318}
 table{width:100%;border-collapse:collapse;font-size:10pt}
 th,td{border-bottom:1px solid #e7e6e2;padding:1.4mm 1.5mm;text-align:left;vertical-align:top}
@@ -134,8 +136,8 @@ ul{margin:1mm 0 1mm 5mm;padding:0}
 ${t.inputs.members.filter(Boolean).length ? `<br>Участники: ${t.inputs.members.filter(Boolean).map(esc).join(', ')}` : ''}</div>
 
 <div class="tiles">
-  <div class="tile"><div class="k">Индекс города</div><div class="v">${num(f.startIndex)} → ${num(f.cityIndex)}</div><div class="s">Δ ${sign(Math.round((f.cityIndex - f.startIndex) * 10) / 10).replace('.', ',')} (среднее шести показателей)</div></div>
-  <div class="tile"><div class="k">Сумма показателей</div><div class="v">${sign(f.deltaSum)}</div><div class="s">изменение «было → стало»</div></div>
+  <div class="tile main"><div class="k">Рост города</div><div class="v">${sign(f.deltaSum)}</div><div class="s">сумма изменений шести показателей — по ней сравниваются команды</div></div>
+  <div class="tile"><div class="k">Индекс города</div><div class="v sm">${num(f.startIndex)} → ${num(f.cityIndex)}</div><div class="s">среднее шести показателей; города стартуют с разных позиций</div></div>
   <div class="tile"><div class="k">Индекс устойчивости портфеля</div><div class="v">${Math.round(f.resilienceIndex * 100)}%</div><div class="s">${f.resilienceCount} из ${f.itemCount} мер полезны в ≥ 3 из 4 сценариев</div></div>
   <div class="tile"><div class="k">Итоговый резерв</div><div class="v ${f.reserve < 0 ? 'neg' : ''}">${money(f.reserve)} у.е.</div><div class="s">${f.deficit ? `дефицит ${f.deficit} → штраф −${f.penalty}` : f.reserveBonus ? `бонус +${f.reserveBonus} к Адаптивности` : 'без штрафа и бонуса'}</div></div>
 </div>
@@ -160,7 +162,8 @@ ${t.inputs.members.filter(Boolean).length ? `<br>Участники: ${t.inputs.
     const v = (k === pi ? -f.penalty : 0) + (k === data.rules.reserveBonusIndicator ? f.reserveBonus : 0) - spill;
     return `<td class="r">${v ? sign(v) : '—'}</td>`;
   }).join('')}</tr>
-<tr><th>Итог (шкала ${data.rules.min}–${data.rules.max})</th>${INDICATORS.map((k) => `<th class="r">${f.final[k]}</th>`).join('')}</tr></table>
+<tr><th>Итог (шкала ${data.rules.min}–${data.rules.max})</th>${INDICATORS.map((k) => `<th class="r">${f.final[k]}</th>`).join('')}</tr>
+<tr><th>Рост (итог − старт)</th>${INDICATORS.map((k) => `<th class="r">${sign(f.delta[k])}</th>`).join('')}</tr></table>
 <div style="margin-top:2mm">${notes.map((n) => `<div>${n}</div>`).join('')}</div>
 
 <div class="page"></div>

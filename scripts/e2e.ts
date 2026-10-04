@@ -303,7 +303,7 @@ async function main() {
   writeFileSync(pdfPath, pdfBuf);
   if (existsSync('/opt/homebrew/bin/pdftotext') || existsSync('/usr/bin/pdftotext') || existsSync('/usr/local/bin/pdftotext')) {
     const text = execFileSync('pdftotext', ['-enc', 'UTF-8', pdfPath, '-']).toString('utf8');
-    check(text.includes('УЧЕБНЫЕ ДАННЫЕ') && text.includes('Индекс города') && text.includes('Альфа'), 'русский текст в PDF извлекается (pdftotext)');
+    check(text.includes('УЧЕБНЫЕ ДАННЫЕ') && text.includes('Рост города') && text.includes('Индекс города') && text.includes('Альфа'), 'русский текст в PDF извлекается (pdftotext)');
     check(text.includes('Иванов И.'), 'участники команды в PDF');
   } else console.log('  · pdftotext не найден — проверка извлечения текста пропущена');
   const zip = await fetch(`${BASE}/api/admin/all.zip?t=${adminToken}`);

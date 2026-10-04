@@ -161,7 +161,8 @@ function TeamDetail({ t, v, close }: { t: AdminTeam; v: AdminView; close: () => 
           <table className="t"><thead><tr><th>Показатель</th><th className="r">Было</th><th className="r">Стало</th><th className="r">Δ</th></tr></thead>
             <tbody>{Object.keys(t.final.final).map((k) => <tr key={k}><td>{label(k)}</td><td className="r">{(t.final!.start as any)[k]}</td><td className="r"><b>{(t.final!.final as any)[k]}</b></td><td className="r">{(t.final!.delta as any)[k]}</td></tr>)}</tbody></table>
           <div className="kv">
-            <span>Индекс города</span><b>{t.final.startIndex.toFixed(1)} → {t.final.cityIndex.toFixed(1)}</b>
+            <span>Рост города</span><b style={{ fontSize: '1.4em' }}>{signed(t.final.deltaSum)}</b>
+            <span>Индекс города</span><span>{t.final.startIndex.toFixed(1)} → {t.final.cityIndex.toFixed(1)}</span>
             <span>Индекс устойчивости</span><b>{Math.round(t.final.resilienceIndex * 100)}%</b>
             <span>Итоговый резерв</span><b>{money(t.final.reserve)}</b>
             <span>Штраф / бонус резерва</span><b>−{t.final.penalty} / +{t.final.reserveBonus}</b>
@@ -170,6 +171,25 @@ function TeamDetail({ t, v, close }: { t: AdminTeam; v: AdminView; close: () => 
       </div>
     </>
   );
+}
+
+const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
+
+// Сводка по командам: сравниваем рост (итог − старт), а не итоговый индекс — города стартуют с разных позиций.
+function Results({ v }: { v: AdminView }) {
+  const done = v.teams.filter((t) => t.final).sort((a, b) => b.final!.deltaSum - a.final!.deltaSum);
+  return <>
+    <h3>Итоги: рост городов</h3>
+    <p className="muted small" style={{ margin: 0 }}>Команды сравниваются по росту — сумме изменений шести показателей. Итоговый индекс сравнивать нельзя: города стартуют с разных позиций.</p>
+    {done.length ? <table className="t">
+      <thead><tr><th>Команда</th><th>Город</th><th className="r">Рост</th><th className="r">Индекс: было → стало</th><th className="r">Устойчивость</th><th className="r">Резерв</th></tr></thead>
+      <tbody>{done.map((t) => <tr key={t.id}><td><b>{t.name}</b></td><td>{t.city?.name ?? '—'}</td>
+        <td className="r"><b style={{ fontSize: '1.2em' }}>{signed(t.final!.deltaSum)}</b></td>
+        <td className="r small">{t.final!.startIndex.toFixed(1)} → {t.final!.cityIndex.toFixed(1)}</td>
+        <td className="r">{Math.round(t.final!.resilienceIndex * 100)}%</td>
+        <td className={`r ${t.final!.reserve < 0 ? 'neg' : ''}`}>{money(t.final!.reserve)}</td></tr>)}</tbody>
+    </table> : <p className="empty">Итоги появятся, когда команды закроют бюджет.</p>}
+  </>;
 }
 
 function Grades({ v, act }: { v: AdminView; act: Act }) {
@@ -298,6 +318,7 @@ export function AdminApp() {
           {tab === 'join' && <Lobby v={v} />}
           {tab === 'grades' && <Grades v={v} act={run} />}
           {tab === 'export' && <div className="card stack">
+            <Results v={v} />
             <h3>Выгрузки</h3>
             <div className="row">
               <a className="btn primary" href={`/api/admin/all.zip?t=${t0}`}>⬇ ZIP: PDF всех команд + CSV</a>
