@@ -1,7 +1,7 @@
 // Симуляция экономики: npm run sim [-- --n 20000 --set penaltyStep=3 --tag after]
 // Для каждого города: N случайных стратегий × все пары (негативный, положительный джокер),
 // именованные стратегии, локальный поиск оптимума, регрессия вклада мер.
-// Результаты: out/sim-<tag>.json и docs/ECONOMY_SIM[-tag].md (таблицы).
+// Результаты: out/sim-<tag>.json и docs/economy/ECONOMY_SIM[-tag].md (таблицы).
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -307,7 +307,7 @@ async function main() {
   mkdirSync(join(root, 'out'), { recursive: true });
   writeFileSync(join(root, 'out', `sim-${tag}.json`), JSON.stringify({ sets, N, results }, null, 1));
   const md = report(data, results, (Date.now() - t0) / 1000);
-  const file = join(root, 'docs', tag === 'base' ? 'ECONOMY_SIM.md' : `ECONOMY_SIM-${tag}.md`);
+  const file = join(root, 'docs', 'economy', tag === 'base' ? 'ECONOMY_SIM.md' : `ECONOMY_SIM-${tag}.md`);
   writeFileSync(file, md);
   console.log(md.split('\n').slice(0, 60).join('\n'));
   console.log(`\n→ ${file}`);

@@ -19,7 +19,8 @@
     "e2e": "tsx scripts/e2e.ts",
     "ui-smoke": "tsx scripts/ui-smoke.ts",
     "typecheck": "tsc -p engine && tsc -p server && tsc -p web --noEmit",
-    "benchmarks": "tsx engine/sim/benchmarks.ts"
+    "benchmarks": "tsx engine/sim/benchmarks.ts && tsx engine/sim/jury.ts",
+    "jury": "tsx engine/sim/jury.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
