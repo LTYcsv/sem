@@ -195,7 +195,8 @@ async function main() {
   for (const t of teams) await t.act({ type: 'finish' });
   await Promise.all(teams.map((t) => t.until((s) => s.team.phase === 'corr1')));
   r = await teams[0].act({ type: 'cancelMeasure', code: 'M8' });
-  const m8 = teams[0].state!.portfolio.find((p) => p.code === 'M8')!;
+  // ждём, пока обновлённое состояние дойдёт по сокету
+  const m8 = (await teams[0].until((s) => s.portfolio.find((p) => p.code === 'M8')?.status === 'cancelled').catch(() => teams[0].state!)).portfolio.find((p) => p.code === 'M8')!;
   check(r.ok && m8.status === 'cancelled' && m8.paid === 6 && m8.laterDue === 0, 'снятие условной M8: «Сейчас» 6 у.е. не вернулось, «Позже» больше не числится');
   for (const [i, t] of teams.entries()) {
     const locked = t.state!.portfolio.find((p) => p.locked);

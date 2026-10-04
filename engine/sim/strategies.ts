@@ -99,11 +99,12 @@ export function playOnce(data: GameData, cityId: string, s: Strategy, neg: strin
   if (s.closing === 'all' && !data.rules.closingNoDebt) for (const i of pending) closing[i.code] = { launch: true };
   else if (s.closing === 'all') {
     // без долга: запускаем всё, на что хватает, в порядке каталога
-    let r = ev.reserve;
+    let r = ev.reserve + (data.rules.closingIncome ?? 0);
     for (const i of pending) { const ok = r - i.laterDue >= 0; closing[i.code] = { launch: ok }; if (ok) r -= i.laterDue; }
   }
   else if (s.closing === 'affordable') {
-    let r = ev.reserve;
+    // бюджет следующего года приходит на закрытии и тоже идёт на запуски
+    let r = ev.reserve + (data.rules.closingIncome ?? 0);
     const gain = (c: string) => {
       const e = measures.get(c)!.effects;
       return sumV(e) - sumV(partialEffects(e, data.rules.conditionalShare));

@@ -179,7 +179,7 @@ export function reportHtml(data: GameData, g: GameState, t: TeamState, ev: Evalu
     const extra = [...mine].filter((c) => !robustItems.includes(c));
     const nm = (c: string) => `${c} «${esc(measures.get(c)!.name)}»`;
     return `<div class="grade"><div><div class="big">${gr.score}<small> / 10</small></div><div class="lvl">${gr.level}</div></div>
-      <div>Рост <b>${sign(f.deltaSum)}</b>. Это лучше, чем у <b>${pct}%</b> из ${b!.samples.toLocaleString('ru-RU')} случайных стратегий для ${esc(city.name)} с теми же джокерами (${t.decisions.negJoker}, ${t.decisions.posJoker}).
+      <div>Рост <b>${sign(f.deltaSum)}</b>. Это лучше, чем у <b>${pct}%</b> из ${b!.samples.toLocaleString('ru-RU')} случайных стратегий для города «${esc(city.name)}» с теми же джокерами (${t.decisions.negJoker}, ${t.decisions.posJoker}).
       Медиана ${sign(pair.q[50])}, лучший возможный результат ${sign(gr.best)}${gr.gap ? `; до него не хватило <b>${gr.gap}</b> балл${gr.gap % 10 === 1 && gr.gap % 100 !== 11 ? '' : gr.gap % 10 >= 2 && gr.gap % 10 <= 4 && (gr.gap % 100 < 12 || gr.gap % 100 > 14) ? 'а' : 'ов'}` : ' — команда его достигла'}.
       <div class="hint" style="margin-top:1.5mm">Оценка только за результат в модели: 1–5 — ниже медианы, 5–8 — от медианы до лучших 10% стратегий, 8–10 — от лучших 10% до максимума. Логику (матрица, сценарии, обоснования, защита) ведущий оценивает отдельно.</div></div></div>
     ${gradeScale(f.deltaSum, pair)}
@@ -273,7 +273,7 @@ ${g.settings.diagnosticsEnabled ? `<h3>Как команда увидела го
 <div class="page"></div>
 <h2>3. Меры и джокеры</h2>
 <table><tr><th>Мера</th><th>Режим</th><th class="r">Уплачено, у.е.</th><th>Почему?</th><th>Сценарии</th></tr>${portfolioRows || '<tr><td colspan="5" class="empty">мер нет</td></tr>'}</table>
-<div class="sub">Сценарии: жирная цифра — команда отметила меру полезной в этом сценарии. Незапущенная условная и снятая мера дают половину эффекта (округление к нулю: +2 → +1, +1 → 0). «Уплачено» — за вычетом возврата. Все операции — в приложении «Журнал бюджета».</div>
+<div class="sub">Сценарии: жирная цифра — команда отметила меру полезной в этом сценарии. ${data.rules.conditionalShare ? 'Незапущенная условная мера даёт часть эффекта.' : 'Незапущенная условная мера эффекта не даёт.'} Снятая полная мера даёт половину эффекта (округление к нулю: +2 → +1, +1 → 0), снятая подготовка — как незапущенная. «Уплачено» — за вычетом возврата. Все операции — в приложении «Журнал бюджета».</div>
 <h3>Джокеры и бюджет следующего года</h3>
 ${negJ ? `<div class="joker"><b>${negJ.code} «${esc(negJ.name)}»</b> (негативный). ${esc(negJ.description)}<div>Цена: <b>${esc(ev.neg?.explanation)}</b></div></div>` : ''}
 ${posJ ? `<div class="joker"><b>${posJ.code} «${esc(posJ.name)}»</b> (${posJ.basket === 'positive' && posJ.code !== 'J0' ? 'положительный' : 'нейтральный'}). ${esc(posJ.description)}

@@ -55,7 +55,7 @@ export function ClosingStep(p: StepProps) {
         <div>
           <div className="card">
             <h2>Закрытие бюджета</h2>
-            <p className="muted">По каждой условной мере решите: запускаем (платим «Позже» с учётом скидок) или нет. Незапущенная мера даёт {v.rules.conditionalSharePct}% эффекта.</p>
+            <p className="muted">По каждой условной мере решите: запускаем (платим «Позже» с учётом скидок) или нет. {v.rules.conditionalSharePct ? `Незапущенная мера даёт ${v.rules.conditionalSharePct}% эффекта.` : 'Незапущенная мера эффекта не даёт: подготовка без решения ничего не меняет в жизни города.'}</p>
             {!pending.length && <div className="alert info">Условных мер нет — решать нечего, можно перейти к защите.</div>}
           </div>
           {v.rules.closingIncome > 0 && <div className="card income" style={{ marginTop: 14 }}>

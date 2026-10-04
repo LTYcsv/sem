@@ -1,16 +1,25 @@
 {
-  "_comment": "Правки поверх xlsx. Правила: шаг штрафа и перенос (03.10.2026), минимум полных мер, снятие мер (03.10.2026), бюджет следующего года на закрытии (04.10.2026). Числа мер и городов — блоки measures/cities (03.10.2026). Подробности: docs/RULES.md, docs/ECONOMY_REPORT.md. Когда внесёте в xlsx — удалите отсюда.",
+  "_comment": "Правки поверх xlsx. Правила: шаг штрафа и перенос (03.10.2026), минимум полных мер, снятие мер (03.10.2026), бюджет следующего года на закрытии и подготовка без запуска не даёт эффекта, дешевле «Сейчас» у дорогих мер (04.10.2026). Числа мер и городов — блоки measures/cities (03.10.2026). Подробности: docs/RULES.md, docs/ECONOMY_REPORT.md. Когда внесёте в xlsx — удалите отсюда.",
   "penaltyStep": 4,
   "penaltySpill": true,
   "minFullMeasures": 2,
   "fullRefundShare": 0.6,
   "removedEffectShare": 0.5,
   "closingIncome": 30,
+  "cities": {
+    "Новая долина": {
+      "start": {
+        "adapt": 7,
+        "human": 7
+      }
+    }
+  },
+  "conditionalShare": 0,
   "measures": {
     "M11": {
       "full": 30,
-      "now": 8,
-      "later": 22,
+      "now": 6,
+      "later": 24,
       "effects": {
         "infra": 0
       }
@@ -18,20 +27,43 @@
     "M16": {
       "effects": {
         "eco": 0
-      }
+      },
+      "full": 30,
+      "now": 6,
+      "later": 24
     },
     "M1": {
       "effects": {
         "econ": 0
-      }
-    }
-  },
-  "cities": {
-    "Новая долина": {
-      "start": {
-        "adapt": 7,
-        "human": 7
-      }
+      },
+      "full": 30,
+      "now": 6,
+      "later": 24
+    },
+    "M3": {
+      "full": 25,
+      "now": 5,
+      "later": 20
+    },
+    "M7": {
+      "full": 30,
+      "now": 6,
+      "later": 24
+    },
+    "M9": {
+      "full": 25,
+      "now": 5,
+      "later": 20
+    },
+    "M14": {
+      "full": 25,
+      "now": 5,
+      "later": 20
+    },
+    "M15": {
+      "full": 25,
+      "now": 5,
+      "later": 20
     }
   }
 }

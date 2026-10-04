@@ -6,8 +6,12 @@ import type { Decisions, GameData, NegativeJoker } from '../src/index.ts';
 
 const loaded: GameData = JSON.parse(readFileSync(new URL('../../data/game_data.json', import.meta.url), 'utf8'));
 // Механику проверяем на исходных правилах xlsx (шаг штрафа 5, без переноса); принятая правка — отдельный блок ниже.
-const data: GameData = { ...loaded, rules: { ...loaded.rules, penaltyStep: 5, penaltySpill: false, closingIncome: 0 } };
-const accepted: GameData = { ...loaded, rules: { ...loaded.rules, penaltyStep: 4, penaltySpill: true, closingIncome: 0 } };
+// Правки 04.10.2026 (бюджет следующего года, подготовка без запуска = 0, дешевле «Сейчас») проверяются отдельным блоком в конце.
+const XLSX_NOW: Record<string, number> = { M1: 8, M3: 7, M7: 8, M9: 7, M11: 8, M14: 7, M15: 7, M16: 8 };
+const v4measures = loaded.measures.map((m) => (XLSX_NOW[m.code] ? { ...m, now: XLSX_NOW[m.code], later: m.full - XLSX_NOW[m.code] } : m));
+const v4rules = { ...loaded.rules, conditionalShare: 0.5, closingIncome: 0 };
+const data: GameData = { ...loaded, measures: v4measures, rules: { ...v4rules, penaltyStep: 5, penaltySpill: false } };
+const accepted: GameData = { ...loaded, measures: v4measures, rules: { ...v4rules, penaltyStep: 4, penaltySpill: true } };
 const city = (name: string) => data.cities.find((c) => c.name === name)!;
 const neg = (code: string) => data.jokers.find((j) => j.code === code) as NegativeJoker;
 const has = (...m: string[]) => new Set(m);
@@ -252,7 +256,7 @@ describe('принятая правка: шаг 4 и перенос штрафа
 describe('снятие мер в корректировке (правила 03.10.2026)', () => {
   it('принятые правки чисел: M11, M16, M1, Новая долина', () => {
     const m = (c: string) => loaded.measures.find((x) => x.code === c)!;
-    expect([m('M11').full, m('M11').now, m('M11').later, m('M11').effects.infra]).toEqual([30, 8, 22, 0]);
+    expect([m('M11').full, m('M11').now, m('M11').later, m('M11').effects.infra]).toEqual([30, 6, 24, 0]);
     expect(m('M16').effects.eco).toBe(0);
     expect(m('M1').effects.econ).toBe(0);
     const nd = loaded.cities.find((c) => c.name === 'Новая долина')!;
@@ -339,5 +343,25 @@ describe('Бюджет следующего года на закрытии (04.1
     expect(after.reserve).toBe(before.reserve + 30 - 15);
     expect(after.spent).toBe(before.spent + 15);
     expect(after.items.find((i) => i.code === 'M2')!.status).toBe('launched');
+  });
+});
+
+describe('Подготовка без запуска не даёт эффекта, дешевле «Сейчас» (04.10.2026)', () => {
+  const pg = loaded.cities.find((c) => c.name === 'Промград')!.id;
+  it('в данных: эффект незапущенной 0, «Сейчас» дорогих мер 5–6, Сейчас + Позже = Полная', () => {
+    expect(loaded.rules.conditionalShare).toBe(0);
+    const now = Object.fromEntries(loaded.measures.map((m) => [m.code, m.now]));
+    expect([now.M1, now.M3, now.M7, now.M9, now.M11, now.M14, now.M15, now.M16]).toEqual([6, 5, 6, 5, 6, 5, 5, 6]);
+    for (const m of loaded.measures) expect(m.now + m.later).toBe(m.full);
+  });
+  it('незапущенная и снятая подготовка — без эффекта; снятая полная — половина', () => {
+    const ev = evaluate(loaded, { ...emptyDecisions(pg), rounds: [{ M4: 'full', M6: 'full', M2: 'conditional', M13: 'conditional' }, {}, {}], cancels: [['M6', 'M13'], []], negJoker: 'J-7', posJoker: 'J0', posDecision: { use: false }, closing: { M2: { launch: false } } });
+    const it = (c: string) => ev.items.find((i) => i.code === c)!;
+    const zero = { econ: 0, social: 0, infra: 0, eco: 0, human: 0, adapt: 0 };
+    expect(it('M2').status).toBe('notLaunched');
+    expect(it('M2').effects).toEqual(zero);
+    expect(it('M13').status).toBe('cancelled');
+    expect(it('M13').effects).toEqual(zero);
+    expect(it('M6').effects).toEqual(partialEffects(loaded.measures.find((m) => m.code === 'M6')!.effects, 0.5));
   });
 });

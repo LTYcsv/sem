@@ -13,7 +13,7 @@ export type ItemStatus =
   | 'grant' // полностью запущена благодаря джокеру (грант / партнёр)
   | 'conditional' // подготовлена, решение о запуске ещё не принято
   | 'launched' // условная, запущена на закрытии
-  | 'notLaunched' // условная, не запущена на закрытии (половина эффекта)
+  | 'notLaunched' // условная, не запущена на закрытии (доля эффекта conditionalShare)
   | 'cancelled'; // снята в корректировке: полная — возврат части цены, условная — «Позже» не платится; эффект урезан
 
 export interface Item {
@@ -385,7 +385,7 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
         if (it.laterDue === 0) note('closing', () => `${it.code} — запуск на закрытии без доплаты (скидка покрыла «Позже»)`, it.code);
       } else {
         it.status = 'notLaunched';
-        note('closing', () => `${it.code} — не запускаем (остаётся половина эффекта)`, it.code);
+        note('closing', () => `${it.code} — не запускаем (${rules.conditionalShare ? `остаётся ${Math.round(rules.conditionalShare * 100)}% эффекта` : 'эффекта нет'})`, it.code);
       }
     }
   }
@@ -394,7 +394,8 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
   for (const it of items.values()) {
     const e = m(it.code).effects;
     it.effects =
-      it.status === 'cancelled' ? partialEffects(e, rules.removedEffectShare ?? 0)
+      // снятая подготовка не даёт больше, чем незапущенная
+      it.status === 'cancelled' ? partialEffects(e, it.initialMode === 'conditional' ? Math.min(rules.removedEffectShare ?? 0, rules.conditionalShare) : rules.removedEffectShare ?? 0)
       : it.status === 'conditional' || it.status === 'notLaunched' ? partialEffects(e, rules.conditionalShare)
       : { ...e };
   }
