@@ -140,7 +140,7 @@ export function reportHtml(data: GameData, g: GameState, t: TeamState, ev: Evalu
     const st = it.status === 'cancelled' ? `${it.initialMode === 'full' ? 'полная' : 'условная'} → снята${it.refund ? ` (возврат ${it.refund})` : ''}` : STATUS[it.status];
     const lock = ev.locked.includes(it.code) ? ' <span class="sub">покрыла джокер</span>' : '';
     return `<tr><td><b>${it.code}</b> ${esc(m.name)}${lock}</td><td>${st}</td><td class="r">${it.paid}</td>
-      <td>${it.initialMode === 'conditional' ? txt(trig) : '—'}${reason ? `<div class="sub">Закрытие: ${esc(reason)}</div>` : ''}</td><td class="sc">${sc}</td></tr>`;
+      <td>${trig?.trim() ? esc(trig) : '—'}${reason?.trim() ? `<div class="sub">Закрытие: ${esc(reason)}</div>` : ''}</td><td class="sc">${sc}</td></tr>`;
   }).join('');
 
   const ledgerRows = ev.ledger.map((l) => `<tr><td>${STAGE[l.stage]}</td><td>${esc(l.text)}</td><td class="r">${l.amount ? money(l.amount) : '—'}</td><td class="r ${l.balance < 0 ? 'neg' : ''}">${money(l.balance)}</td></tr>`).join('');
@@ -181,7 +181,7 @@ export function reportHtml(data: GameData, g: GameState, t: TeamState, ev: Evalu
     return `<div class="grade"><div><div class="big">${gr.score}<small> / 10</small></div><div class="lvl">${gr.level}</div></div>
       <div>Рост <b>${sign(f.deltaSum)}</b>. Это лучше, чем у <b>${pct}%</b> из ${b!.samples.toLocaleString('ru-RU')} случайных стратегий для ${esc(city.name)} с теми же джокерами (${t.decisions.negJoker}, ${t.decisions.posJoker}).
       Медиана ${sign(pair.q[50])}, лучший возможный результат ${sign(gr.best)}${gr.gap ? `; до него не хватило <b>${gr.gap}</b> балл${gr.gap % 10 === 1 && gr.gap % 100 !== 11 ? '' : gr.gap % 10 >= 2 && gr.gap % 10 <= 4 && (gr.gap % 100 < 12 || gr.gap % 100 > 14) ? 'а' : 'ов'}` : ' — команда его достигла'}.
-      <div class="hint" style="margin-top:1.5mm">Оценка только за результат в модели: 1–5 — ниже медианы, 5–8 — от медианы до лучших 10% стратегий, 8–10 — от лучших 10% до максимума. Логику (матрица, сценарии, триггеры, защита) ведущий оценивает отдельно.</div></div></div>
+      <div class="hint" style="margin-top:1.5mm">Оценка только за результат в модели: 1–5 — ниже медианы, 5–8 — от медианы до лучших 10% стратегий, 8–10 — от лучших 10% до максимума. Логику (матрица, сценарии, обоснования, защита) ведущий оценивает отдельно.</div></div></div>
     ${gradeScale(f.deltaSum, pair)}
     <div class="hint" style="margin:-1mm 0 3mm">Серая полоса — результаты случайных стратегий (тёмная часть — средние 50%).</div>
     <div class="vars">
@@ -272,13 +272,14 @@ ${g.settings.diagnosticsEnabled ? `<h3>Как команда увидела го
 
 <div class="page"></div>
 <h2>3. Меры и джокеры</h2>
-<table><tr><th>Мера</th><th>Режим</th><th class="r">Уплачено, у.е.</th><th>Триггер / обоснование</th><th>Сценарии</th></tr>${portfolioRows || '<tr><td colspan="5" class="empty">мер нет</td></tr>'}</table>
+<table><tr><th>Мера</th><th>Режим</th><th class="r">Уплачено, у.е.</th><th>Почему?</th><th>Сценарии</th></tr>${portfolioRows || '<tr><td colspan="5" class="empty">мер нет</td></tr>'}</table>
 <div class="sub">Сценарии: жирная цифра — команда отметила меру полезной в этом сценарии. Незапущенная условная и снятая мера дают половину эффекта (округление к нулю: +2 → +1, +1 → 0). «Уплачено» — за вычетом возврата. Все операции — в приложении «Журнал бюджета».</div>
-<h3>Джокеры</h3>
+<h3>Джокеры и бюджет следующего года</h3>
 ${negJ ? `<div class="joker"><b>${negJ.code} «${esc(negJ.name)}»</b> (негативный). ${esc(negJ.description)}<div>Цена: <b>${esc(ev.neg?.explanation)}</b></div></div>` : ''}
 ${posJ ? `<div class="joker"><b>${posJ.code} «${esc(posJ.name)}»</b> (${posJ.basket === 'positive' && posJ.code !== 'J0' ? 'положительный' : 'нейтральный'}). ${esc(posJ.description)}
   <div>${ev.pos?.used ? `<b>Использован</b>: ${esc(ev.pos.reason)}; ${esc(ev.pos.gain)}${ev.pos.measure ? ` (мера ${ev.pos.measure})` : ''}` : ev.pos?.available ? '<b>Команда пропустила</b> возможность' : `Возможность не использована: ${esc(ev.pos?.reason)}`}</div></div>` : ''}
 
+${data.rules.closingIncome && t.decisions.closing ? `<div class="joker"><b>Бюджет следующего года: +${data.rules.closingIncome} у.е.</b> Пришёл перед закрытием: его можно потратить на запуск подготовленных мер, остаток уходит в резерв.</div>` : ''}
 <h2 style="break-before:page">4. Как изменилось положение города</h2>
 <div class="tiles">
   <div class="tile main"><div class="k">Рост города</div><div class="v">${sign(f.deltaSum)}</div><div class="s">сумма изменений шести показателей — по ней сравниваются команды</div></div>

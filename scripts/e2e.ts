@@ -124,7 +124,7 @@ async function main() {
   check(teams[0].state!.city!.situation.length > 50 && teams[0].state!.city!.signals.length === 6, 'карточка города: ситуация и 6 сигналов');
 
   console.log('\n[4] Диагностика, матрица (с проверкой таймера), сценарии');
-  let r: Awaited<ReturnType<typeof teams[0]['act']>>;
+  let r = { ok: true } as Awaited<ReturnType<typeof teams[0]['act']>>;
   check(teams[0].state!.stepErrors.length === 0 && teams[0].state!.stepWarnings.length > 0, `пустая диагностика не блокирует, а подсказывает (подсказок: ${teams[0].state!.stepWarnings.length})`);
   for (const t of teams) {
     await t.act({ type: 'saveInputs', section: 'diagnostics', data: { trends: ['Старение', 'Автоматизация', 'Удалёнка', ''], drivers: ['Инвестиции', 'Миграция', ''], weakSignals: ['Коворкинг', ''], problems: ['Отток', 'Износ', 'Бюджет'] } });

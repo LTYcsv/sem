@@ -335,7 +335,7 @@ if (existsSync(overridesPath)) {
   for (const w of overrides) warnings.push(`Число переопределено в data/rules_overrides.json: ${w} (в xlsx другое значение)`);
   for (const [k, v] of Object.entries(o)) {
     if (k.startsWith('_') || k === 'measures' || k === 'cities') continue;
-    if (!(k in rules) && !['penaltySpill', 'closingNoDebt', 'minFullMeasures', 'fullRefundShare', 'removedEffectShare'].includes(k)) throw new Error(`rules_overrides.json: неизвестный параметр ${k}`);
+    if (!(k in rules) && !['penaltySpill', 'closingNoDebt', 'minFullMeasures', 'fullRefundShare', 'removedEffectShare', 'closingIncome'].includes(k)) throw new Error(`rules_overrides.json: неизвестный параметр ${k}`);
     const before = (rules as any)[k];
     if (before === v) continue;
     (rules as any)[k] = v;

@@ -1,10 +1,11 @@
 {
-  "_comment": "Правки поверх xlsx. Правила: шаг штрафа и перенос (03.10.2026), минимум полных мер, снятие мер (03.10.2026). Числа мер и городов — блоки measures/cities (03.10.2026). Подробности: docs/RULES.md, docs/ECONOMY_REPORT.md. Когда внесёте в xlsx — удалите отсюда.",
+  "_comment": "Правки поверх xlsx. Правила: шаг штрафа и перенос (03.10.2026), минимум полных мер, снятие мер (03.10.2026), бюджет следующего года на закрытии (04.10.2026). Числа мер и городов — блоки measures/cities (03.10.2026). Подробности: docs/RULES.md, docs/ECONOMY_REPORT.md. Когда внесёте в xlsx — удалите отсюда.",
   "penaltyStep": 4,
   "penaltySpill": true,
   "minFullMeasures": 2,
   "fullRefundShare": 0.6,
   "removedEffectShare": 0.5,
+  "closingIncome": 30,
   "measures": {
     "M11": {
       "full": 30,

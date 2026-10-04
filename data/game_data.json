@@ -677,7 +677,8 @@
       "Правило переопределено в data/rules_overrides.json: penaltySpill = true (в xlsx: нет)",
       "Правило переопределено в data/rules_overrides.json: minFullMeasures = 2 (в xlsx: нет)",
       "Правило переопределено в data/rules_overrides.json: fullRefundShare = 0.6 (в xlsx: нет)",
-      "Правило переопределено в data/rules_overrides.json: removedEffectShare = 0.5 (в xlsx: нет)"
+      "Правило переопределено в data/rules_overrides.json: removedEffectShare = 0.5 (в xlsx: нет)",
+      "Правило переопределено в data/rules_overrides.json: closingIncome = 30 (в xlsx: нет)"
     ],
     "overrides": [
       "M11.full: 35 → 30",
@@ -692,7 +693,8 @@
       "penaltySpill: нет (xlsx) → true",
       "minFullMeasures: нет (xlsx) → 2",
       "fullRefundShare: нет (xlsx) → 0.6",
-      "removedEffectShare: нет (xlsx) → 0.5"
+      "removedEffectShare: нет (xlsx) → 0.5",
+      "closingIncome: нет (xlsx) → 30"
     ]
   },
   "indicators": [
@@ -734,7 +736,8 @@
     "penaltySpill": true,
     "minFullMeasures": 2,
     "fullRefundShare": 0.6,
-    "removedEffectShare": 0.5
+    "removedEffectShare": 0.5,
+    "closingIncome": 30
   },
   "cities": [
     {

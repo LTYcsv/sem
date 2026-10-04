@@ -486,6 +486,7 @@ export class GameManager {
       rules: {
         penaltyStep: this.data.rules.penaltyStep, reserveBonusStep: this.data.rules.reserveBonusStep, reserveBonusMax: this.data.rules.reserveBonusMax,
         conditionalSharePct: Math.round(this.data.rules.conditionalShare * 100),
+        closingIncome: this.data.rules.closingIncome ?? 0,
         minFull: this.data.rules.minFullMeasures ?? 0, refundPct: Math.round((this.data.rules.fullRefundShare ?? 0) * 100),
       },
       inputs: t.inputs,

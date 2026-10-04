@@ -6,8 +6,8 @@ import type { Decisions, GameData, NegativeJoker } from '../src/index.ts';
 
 const loaded: GameData = JSON.parse(readFileSync(new URL('../../data/game_data.json', import.meta.url), 'utf8'));
 // Механику проверяем на исходных правилах xlsx (шаг штрафа 5, без переноса); принятая правка — отдельный блок ниже.
-const data: GameData = { ...loaded, rules: { ...loaded.rules, penaltyStep: 5, penaltySpill: false } };
-const accepted: GameData = { ...loaded, rules: { ...loaded.rules, penaltyStep: 4, penaltySpill: true } };
+const data: GameData = { ...loaded, rules: { ...loaded.rules, penaltyStep: 5, penaltySpill: false, closingIncome: 0 } };
+const accepted: GameData = { ...loaded, rules: { ...loaded.rules, penaltyStep: 4, penaltySpill: true, closingIncome: 0 } };
 const city = (name: string) => data.cities.find((c) => c.name === name)!;
 const neg = (code: string) => data.jokers.find((j) => j.code === code) as NegativeJoker;
 const has = (...m: string[]) => new Set(m);
@@ -324,5 +324,20 @@ describe('Эталоны и оценка результата (PDF)', () => {
       expect(v.hindsight.delta).toBeGreaterThanOrEqual(v.robust.delta);
       expect(evaluate(loaded, v.hindsight.decisions).final!.deltaSum).toBe(v.hindsight.delta);
     }
+  });
+});
+
+describe('Бюджет следующего года на закрытии (04.10.2026)', () => {
+  const dec2 = (over: Partial<Decisions>): Decisions => ({ ...emptyDecisions(loaded.cities.find((c) => c.name === 'Промград')!.id), ...over });
+  it('30 у.е. приходят только на закрытии и идут на запуск подготовленных мер', () => {
+    const base = { rounds: [{ M4: 'full', M6: 'full', M2: 'conditional', M13: 'conditional' }, {}, {}] as Decisions['rounds'], negJoker: 'J-7', posJoker: 'J0', posDecision: { use: false } };
+    const before = evaluate(loaded, dec2(base));
+    expect(before.ledger.some((l) => /Бюджет следующего года/.test(l.text))).toBe(false);
+    const after = evaluate(loaded, dec2({ ...base, closing: { M2: { launch: true }, M13: { launch: false } } }));
+    const inc = after.ledger.find((l) => /Бюджет следующего года/.test(l.text))!;
+    expect(inc.amount).toBe(30);
+    expect(after.reserve).toBe(before.reserve + 30 - 15);
+    expect(after.spent).toBe(before.spent + 15);
+    expect(after.items.find((i) => i.code === 'M2')!.status).toBe('launched');
   });
 });

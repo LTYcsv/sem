@@ -371,6 +371,7 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
 
   // 6. Закрытие
   if (d.closing) {
+    if (rules.closingIncome) pay('closing', -rules.closingIncome, `Бюджет следующего года: +${rules.closingIncome} у.е. (только на запуск подготовленных мер, остаток — в резерв)`);
     for (const it of items.values()) {
       if (it.status !== 'conditional') continue;
       const dec = d.closing[it.code];
@@ -402,7 +403,7 @@ export function evaluate(data: GameData, d: Decisions, opts: { texts?: boolean }
   const laterCommitments = pending.reduce((s, i) => s + i.laterDue, 0);
   const forecast = reserve - laterCommitments;
   const penaltyFor = (r: number) => (r < 0 ? Math.ceil(-r / rules.penaltyStep) : 0);
-  const spent = (city.startBudget ?? rules.startBudget) - reserve;
+  const spent = (city.startBudget ?? rules.startBudget) + (d.closing ? rules.closingIncome ?? 0 : 0) - reserve;
 
   const ev: Evaluation = {
     items: [...items.values()], ledger, reserve, spent, laterCommitments, forecast, forecastPenalty: penaltyFor(forecast),

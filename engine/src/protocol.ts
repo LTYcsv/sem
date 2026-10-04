@@ -135,7 +135,6 @@ export function validateStep(phase: Phase, inputs: Inputs, opts: { diagnosticsEn
     for (const r of opts.portfolio) {
       if (r.status === 'cancelled') continue;
       if (!r.scenarios.some(Boolean)) e.push(`${r.code}: отметьте хотя бы один сценарий, где мера полезна`);
-      if (r.mode === 'conditional' && (r.status === 'conditional') && !filled(r.trigger)) e.push(`${r.code}: для условной меры нужен триггер`);
     }
   }
   if (phase === 'jokerPos' && opts.posAvailable && !opts.posDecided) e.push('Джокер не использован — при переходе он будет пропущен');
@@ -144,7 +143,6 @@ export function validateStep(phase: Phase, inputs: Inputs, opts: { diagnosticsEn
       if (r.status !== 'conditional') continue;
       const c = inputs.closing[r.code];
       if (!c || c.launch === null) e.push(`${r.code}: не решено, запускаем или нет — при переходе мера не запускается`);
-      else if (countSentences(c.reason) < 1 && words(c.reason) < 3) e.push(`${r.code}: обоснуйте решение триггером (1–2 предложения)`);
     }
   }
   if (phase === 'defense') {
@@ -188,7 +186,7 @@ export interface TeamView {
   serverNow: number;
   game: { pin: string; status: 'lobby' | 'running' | 'finished'; diagnosticsEnabled: boolean; teamsJoined: number; announcement: { id: string; text: string; at: number } | null };
   team: { id: string; name: string; phase: Phase; deadline: number | null; remainingMs: number | null; paused: boolean; durationMs: number };
-  rules: { penaltyStep: number; reserveBonusStep: number; reserveBonusMax: number; conditionalSharePct: number; minFull: number; refundPct: number };
+  rules: { penaltyStep: number; reserveBonusStep: number; reserveBonusMax: number; conditionalSharePct: number; minFull: number; refundPct: number; closingIncome: number };
   inputs: Inputs;
   city: PublicCity | null;
   catalog: PublicMeasure[];
