@@ -11,6 +11,7 @@
 | [`jury/2-novaya-dolina.md`](jury/2-novaya-dolina.md) | Новая долина — то же |
 | [`jury/3-severny-bereg.md`](jury/3-severny-bereg.md) | Северный берег — то же |
 | [`jury/4-monograd.md`](jury/4-monograd.md) | Моноград — то же |
+| [`jury/5-ob-igre.md`](jury/5-ob-igre.md) | Коротко об игре: чему учит, чем гордимся, цифры — для преподавателя |
 
 Таблицы «Оценка за результат» в файлах городов генерируются командой `npm run jury` (она же запускается после `npm run benchmarks`). Остальной текст правится вручную.
 
