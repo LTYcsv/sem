@@ -9,7 +9,7 @@ import { validateData, GRADE_CRITERIA, INDICATORS, type AdminAction, type GameDa
 import { config, lanAddresses } from './config.ts';
 import { Store } from './db.ts';
 import { GameError, GameManager, type GameState, type TeamState } from './game.ts';
-import { PdfService, reportHtml } from './pdf.ts';
+import { PdfService, loadBenchmarks, reportHtml } from './pdf.ts';
 
 const data: GameData = JSON.parse(readFileSync(config.dataPath, 'utf8'));
 const dataErrors = validateData(data);
@@ -241,6 +241,7 @@ console.log(`  Ведущий:  http://localhost:${config.port}/admin   (лог�
 for (const u of urls) console.log(`  Команды:  ${u}`);
 if (!urls.length) console.log('  ⚠ Не найден адрес в локальной сети — подключите Wi-Fi/Ethernet.');
 if (data.meta.overrides?.length) console.log(`  Правила переопределены: ${data.meta.overrides.join('; ')}`);
+if (!loadBenchmarks(data)) console.log('  ⚠ Эталоны для PDF (лучшие варианты и оценка) не рассчитаны для текущих правил — выполните `npm run benchmarks`.');
 console.log('');
 
 const shutdown = async () => { manager.save(); store.set('lastAlive', String(Date.now())); await pdf.close().catch(() => {}); process.exit(0); };

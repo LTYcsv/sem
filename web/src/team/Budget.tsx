@@ -42,7 +42,6 @@ function MarksEditor({ row, v, act, editable }: { row: PortfolioRow; v: TeamView
   const [m, setM, st] = useAutosave({ scenarios: row.scenarios, trigger: row.trigger }, `${row.code}:${v.team.phase}`,
     (x) => act({ type: 'setMarks', code: row.code, scenarios: x.scenarios, trigger: x.trigger }), 900);
   const titles = v.inputs.scenarios.map((s, i) => s.title || `Сценарий ${i + 1}`);
-  const needTrigger = row.status === 'conditional';
   return (
     <div>
       <div className="small" style={{ marginTop: 8 }}><b>Полезна в сценариях:</b> {!m.scenarios.some(Boolean) && <span className="neg">отметьте хотя бы один</span>}</div>
@@ -53,12 +52,10 @@ function MarksEditor({ row, v, act, editable }: { row: PortfolioRow; v: TeamView
           </button>
         ))}
       </div>
-      {needTrigger && (
-        <div style={{ marginTop: 8 }}>
-          <label className="f small">Триггер запуска {!m.trigger.trim() && <span className="neg">(обязательно)</span>}</label>
-          <input className="t" disabled={!editable} maxLength={300} value={m.trigger} onChange={(e) => setM({ ...m, trigger: e.target.value })} placeholder="При каком наблюдаемом условии запускаем меру?" />
-        </div>
-      )}
+      <div style={{ marginTop: 8 }}>
+        <label className="f small">Почему? <span className="muted">(по желанию)</span></label>
+        <input className="t" disabled={!editable} maxLength={300} value={m.trigger} onChange={(e) => setM({ ...m, trigger: e.target.value })} placeholder={row.status === 'conditional' ? 'Зачем готовим меру и когда её стоит запустить' : 'Зачем городу эта мера'} />
+      </div>
       <div style={{ textAlign: 'right' }}><SaveStatus st={st} /></div>
     </div>
   );
@@ -90,7 +87,6 @@ function MeasureCard({ m, row, v, act, toast }: { m: PublicMeasure; row?: Portfo
         Полная: <b>{m.full}</b> у.е. {m.conditionalAllowed ? <>· Условная: <b>{m.now}</b> сейчас + <b>{m.later}</b> позже</> : '· условной быть не может'}
         {row && row.laterDiscount > 0 && <span className="badge ok" style={{ marginLeft: 6 }}>скидка на «Позже» −{row.laterDiscount}</span>}
       </div>
-      {m.triggerExample && <div className="tiny" style={{ marginTop: 4 }}>Пример триггера: {m.triggerExample}</div>}
       <div className="spread" style={{ marginTop: 10 }}>
         {cur !== null ? (
           <div className="seg" role="group" aria-label={`Режим ${m.code}`}>
@@ -106,7 +102,7 @@ function MeasureCard({ m, row, v, act, toast }: { m: PublicMeasure; row?: Portfo
       {confirm && <Confirm danger yes="Снять" onNo={() => setConfirm(false)} onYes={cancel}
         text={<><b>Снять {m.code}?</b>{row!.status === 'full'
           ? <p>Вернётся <b>{row!.refundIfRemoved} у.е.</b> ({v.rules.refundPct}% цены). Эффект меры урежется: +2 → +1, +1 → 0.</p>
-          : <p>«Позже» ({row!.laterDue} у.е.) платить не придётся, но «Сейчас» (<b>{row!.paid} у.е.</b>) не вернётся. Эффект меры урежется: +2 → +1, +1 → 0.</p>}
+          : <p>«Позже» ({row!.laterDue} у.е.) платить не придётся, но «Сейчас» (<b>{row!.paid} у.е.</b>) не вернётся. {v.rules.conditionalSharePct ? 'Эффект меры урежется: +2 → +1, +1 → 0.' : 'Эффекта у меры не будет.'}</p>}
           <p className="muted">Снятую меру нельзя вернуть.</p></>} />}
     </div>
   );
@@ -126,7 +122,7 @@ export function BudgetStep(p: StepProps) {
           <div className="card">
             <h2>{titles[round]}</h2>
             {round === 0 ? (
-              <p className="muted">Для каждой меры выберите режим. <b>Полная</b> — платите всё сейчас, полный эффект; <b>минимум {v.rules.minFull} меры должны быть полными</b>. <b>Условная</b> — платите «Сейчас», а «Позже» — только на закрытии, если сработает триггер; без запуска мера даёт половину эффекта. Подготовленные меры удешевляют реакцию на неожиданные события. На этом шаге нельзя потратить больше 100 у.е.</p>
+              <p className="muted">Для каждой меры выберите режим. <b>Полная</b> — платите всё сейчас, полный эффект; <b>минимум {v.rules.minFull} меры должны быть полными</b>. <b>Условная</b> — платите «Сейчас», а «Позже» — только на закрытии, если решите её запустить; {v.rules.conditionalSharePct ? `без запуска мера даёт ${v.rules.conditionalSharePct}% эффекта` : 'без запуска мера эффекта не даёт'}. Зато подготовленные меры удешевляют реакцию на неожиданные события, а перед закрытием придёт бюджет следующего года на их запуск. На этом шаге нельзя потратить больше 100 у.е.</p>
             ) : (
               <p className="muted">Можно докупить меры <b>на резерв</b> и снять меры прошлых шагов: полная — вернётся {v.rules.refundPct}% цены; условная — «Позже» не платится, «Сейчас» не возвращается. У снятой меры эффект урезается (+2 → +1, +1 → 0). <b>Меры, которые удешевили негативный джокер, снять нельзя.</b></p>
             )}

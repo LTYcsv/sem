@@ -1,12 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { evaluate, emptyDecisions, negativeCost, partialEffects, validateData } from '../src/index.ts';
+import { benchKey, dataHash, evaluate, emptyDecisions, gradeResult, negativeCost, partialEffects, percentileOf, validateData } from '../src/index.ts';
+import type { BenchPair, Benchmarks } from '../src/index.ts';
 import type { Decisions, GameData, NegativeJoker } from '../src/index.ts';
 
 const loaded: GameData = JSON.parse(readFileSync(new URL('../../data/game_data.json', import.meta.url), 'utf8'));
 // Механику проверяем на исходных правилах xlsx (шаг штрафа 5, без переноса); принятая правка — отдельный блок ниже.
-const data: GameData = { ...loaded, rules: { ...loaded.rules, penaltyStep: 5, penaltySpill: false } };
-const accepted: GameData = { ...loaded, rules: { ...loaded.rules, penaltyStep: 4, penaltySpill: true } };
+// Правки 04.10.2026 (бюджет следующего года, подготовка без запуска = 0, дешевле «Сейчас») проверяются отдельным блоком в конце.
+const XLSX_NOW: Record<string, number> = { M1: 8, M3: 7, M7: 8, M9: 7, M11: 8, M14: 7, M15: 7, M16: 8 };
+const v4measures = loaded.measures.map((m) => (XLSX_NOW[m.code] ? { ...m, now: XLSX_NOW[m.code], later: m.full - XLSX_NOW[m.code] } : m));
+const v4rules = { ...loaded.rules, conditionalShare: 0.5, closingIncome: 0 };
+const data: GameData = { ...loaded, measures: v4measures, rules: { ...v4rules, penaltyStep: 5, penaltySpill: false } };
+const accepted: GameData = { ...loaded, measures: v4measures, rules: { ...v4rules, penaltyStep: 4, penaltySpill: true } };
 const city = (name: string) => data.cities.find((c) => c.name === name)!;
 const neg = (code: string) => data.jokers.find((j) => j.code === code) as NegativeJoker;
 const has = (...m: string[]) => new Set(m);
@@ -251,7 +256,7 @@ describe('принятая правка: шаг 4 и перенос штрафа
 describe('снятие мер в корректировке (правила 03.10.2026)', () => {
   it('принятые правки чисел: M11, M16, M1, Новая долина', () => {
     const m = (c: string) => loaded.measures.find((x) => x.code === c)!;
-    expect([m('M11').full, m('M11').now, m('M11').later, m('M11').effects.infra]).toEqual([30, 8, 22, 0]);
+    expect([m('M11').full, m('M11').now, m('M11').later, m('M11').effects.infra]).toEqual([30, 6, 24, 0]);
     expect(m('M16').effects.eco).toBe(0);
     expect(m('M1').effects.econ).toBe(0);
     const nd = loaded.cities.find((c) => c.name === 'Новая долина')!;
@@ -291,5 +296,72 @@ describe('снятие мер в корректировке (правила 03.1
     expect(ok.reserve).toBe(8);
     const bad = evaluate(data, dec('Промград', { rounds: [{ M1: 'full', M7: 'full', M16: 'full' }, { M4: 'full' }, {}], cancels: [['M16'], []], negJoker: 'J-7' }));
     expect(bad.errors.join()).toMatch(/больше резерва/);
+  });
+});
+
+describe('Эталоны и оценка результата (PDF)', () => {
+  const q = Array.from({ length: 101 }, (_, i) => i / 5); // 0…20, медиана 10, 90-й перцентиль 18
+  const pair = { q, hindsight: { delta: 22 }, robust: { delta: 19 } } as unknown as BenchPair;
+  it('перцентиль считается по таблице квантилей', () => {
+    expect(percentileOf(q, -1)).toBe(0);
+    expect(percentileOf(q, 10)).toBeCloseTo(0.5);
+    expect(percentileOf(q, 25)).toBe(1);
+  });
+  it('шкала 1–10: медиана — 5, 90-й перцентиль — 8, лучший вариант — 10', () => {
+    expect(gradeResult(0, pair).score).toBe(1);
+    expect(gradeResult(10, pair).score).toBe(5);
+    expect(gradeResult(18, pair).score).toBe(8);
+    expect(gradeResult(22, pair).score).toBe(10);
+    expect(gradeResult(25, pair).score).toBe(10);
+    expect(gradeResult(18, pair).gap).toBe(4);
+    expect(gradeResult(10, pair).level).toBe('средний результат');
+  });
+  it('data/benchmarks.json посчитан для текущих правил и покрывает все пары', () => {
+    const b: Benchmarks = JSON.parse(readFileSync(new URL('../../data/benchmarks.json', import.meta.url), 'utf8'));
+    expect(b.dataHash, 'правила изменились — выполните npm run benchmarks').toBe(dataHash(loaded));
+    const negs = loaded.jokers.filter((j) => j.basket === 'negative');
+    const poss = loaded.jokers.filter((j) => j.basket === 'positive');
+    for (const c of loaded.cities) for (const n of negs) for (const p of poss) {
+      const v = b.table[benchKey(c.id, n.code, p.code)];
+      expect(v, `${c.name} ${n.code} ${p.code}`).toBeTruthy();
+      // лучший вариант при известных джокерах не хуже устойчивого и воспроизводится движком
+      expect(v.hindsight.delta).toBeGreaterThanOrEqual(v.robust.delta);
+      expect(evaluate(loaded, v.hindsight.decisions).final!.deltaSum).toBe(v.hindsight.delta);
+    }
+  });
+});
+
+describe('Бюджет следующего года на закрытии (04.10.2026)', () => {
+  const dec2 = (over: Partial<Decisions>): Decisions => ({ ...emptyDecisions(loaded.cities.find((c) => c.name === 'Промград')!.id), ...over });
+  it('30 у.е. приходят только на закрытии и идут на запуск подготовленных мер', () => {
+    const base = { rounds: [{ M4: 'full', M6: 'full', M2: 'conditional', M13: 'conditional' }, {}, {}] as Decisions['rounds'], negJoker: 'J-7', posJoker: 'J0', posDecision: { use: false } };
+    const before = evaluate(loaded, dec2(base));
+    expect(before.ledger.some((l) => /Бюджет следующего года/.test(l.text))).toBe(false);
+    const after = evaluate(loaded, dec2({ ...base, closing: { M2: { launch: true }, M13: { launch: false } } }));
+    const inc = after.ledger.find((l) => /Бюджет следующего года/.test(l.text))!;
+    expect(inc.amount).toBe(30);
+    expect(after.reserve).toBe(before.reserve + 30 - 15);
+    expect(after.spent).toBe(before.spent + 15);
+    expect(after.items.find((i) => i.code === 'M2')!.status).toBe('launched');
+  });
+});
+
+describe('Подготовка без запуска не даёт эффекта, дешевле «Сейчас» (04.10.2026)', () => {
+  const pg = loaded.cities.find((c) => c.name === 'Промград')!.id;
+  it('в данных: эффект незапущенной 0, «Сейчас» дорогих мер 5–6, Сейчас + Позже = Полная', () => {
+    expect(loaded.rules.conditionalShare).toBe(0);
+    const now = Object.fromEntries(loaded.measures.map((m) => [m.code, m.now]));
+    expect([now.M1, now.M3, now.M7, now.M9, now.M11, now.M14, now.M15, now.M16]).toEqual([6, 5, 6, 5, 6, 5, 5, 6]);
+    for (const m of loaded.measures) expect(m.now + m.later).toBe(m.full);
+  });
+  it('незапущенная и снятая подготовка — без эффекта; снятая полная — половина', () => {
+    const ev = evaluate(loaded, { ...emptyDecisions(pg), rounds: [{ M4: 'full', M6: 'full', M2: 'conditional', M13: 'conditional' }, {}, {}], cancels: [['M6', 'M13'], []], negJoker: 'J-7', posJoker: 'J0', posDecision: { use: false }, closing: { M2: { launch: false } } });
+    const it = (c: string) => ev.items.find((i) => i.code === c)!;
+    const zero = { econ: 0, social: 0, infra: 0, eco: 0, human: 0, adapt: 0 };
+    expect(it('M2').status).toBe('notLaunched');
+    expect(it('M2').effects).toEqual(zero);
+    expect(it('M13').status).toBe('cancelled');
+    expect(it('M13').effects).toEqual(zero);
+    expect(it('M6').effects).toEqual(partialEffects(loaded.measures.find((m) => m.code === 'M6')!.effects, 0.5));
   });
 });

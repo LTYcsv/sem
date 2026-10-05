@@ -32,6 +32,8 @@ export interface RunResult {
   posUsed: boolean;
   posCost: number;
   violations: string[];
+  /** Решения партии — чтобы показать стратегию в PDF. */
+  decisions: Decisions;
 }
 
 const sumV = (v: Vector) => INDICATORS.reduce((s, k) => s + v[k], 0);
@@ -97,11 +99,12 @@ export function playOnce(data: GameData, cityId: string, s: Strategy, neg: strin
   if (s.closing === 'all' && !data.rules.closingNoDebt) for (const i of pending) closing[i.code] = { launch: true };
   else if (s.closing === 'all') {
     // без долга: запускаем всё, на что хватает, в порядке каталога
-    let r = ev.reserve;
+    let r = ev.reserve + (data.rules.closingIncome ?? 0);
     for (const i of pending) { const ok = r - i.laterDue >= 0; closing[i.code] = { launch: ok }; if (ok) r -= i.laterDue; }
   }
   else if (s.closing === 'affordable') {
-    let r = ev.reserve;
+    // бюджет следующего года приходит на закрытии и тоже идёт на запуски
+    let r = ev.reserve + (data.rules.closingIncome ?? 0);
     const gain = (c: string) => {
       const e = measures.get(c)!.effects;
       return sumV(e) - sumV(partialEffects(e, data.rules.conditionalShare));
@@ -134,7 +137,7 @@ export function playOnce(data: GameData, cityId: string, s: Strategy, neg: strin
   return {
     delta: f.deltaSum, deficit: f.deficit, reserve: f.reserve, penalty: f.penalty,
     penaltyLostToClamp: f.penalty - effectivePenalty, lostToCeiling,
-    negCost: ev.neg!.cost, posUsed: !!ev.pos?.used, posCost: ev.pos?.used ? ev.pos.cost : 0, violations,
+    negCost: ev.neg!.cost, posUsed: !!ev.pos?.used, posCost: ev.pos?.used ? ev.pos.cost : 0, violations, decisions: d,
   };
 }
 
@@ -231,4 +234,41 @@ export function namedStrategies(data: GameData, cityId: string): Strategy[] {
     greedyStrategy(data, cityId, 20, 'Жадный + резерв 20 на джокеры'),
     { ...greedy, name: 'Обход: всё полным, после джокера снять незадействованные и докупить', drop: 'unlocked', keep: 0 },
   ];
+}
+
+/** Соседи стратегии для локального поиска: одна мера в другом режиме или другой параметр поведения. */
+export function* neighbors(data: GameData, s: Strategy): Generator<Strategy> {
+  for (const m of data.measures) {
+    for (const mode of ['none', 'full', 'conditional'] as const) {
+      if (mode === 'conditional' && !m.conditionalAllowed) continue;
+      const cur = s.init[m.code] ?? 'none';
+      if (cur === mode) continue;
+      const init = { ...s.init };
+      if (mode === 'none') delete init[m.code]; else init[m.code] = mode;
+      const spent = Object.entries(init).reduce((a, [cc, mm]) => {
+        const ms = data.measures.find((x) => x.code === cc)!;
+        return a + (mm === 'full' ? ms.full : ms.now);
+      }, 0);
+      const fulls = Object.values(init).filter((x) => x === 'full').length;
+      if (spent <= data.rules.startBudget && fulls >= (data.rules.minFullMeasures ?? 0)) yield { ...s, init };
+    }
+  }
+  for (const keep of [0, 5, 10, 15, 20, 30, Infinity]) if (keep !== s.keep) yield { ...s, keep };
+  for (const drop of ['none', 'deficit', 'unlocked'] as const) if (drop !== s.drop) yield { ...s, drop };
+  for (const closing of ['none', 'affordable', 'all'] as const) if (closing !== s.closing) yield { ...s, closing };
+  for (const usePos of ['always', 'freeOnly', 'never'] as const) if (usePos !== s.usePos) yield { ...s, usePos };
+  yield { ...s, corrMode: s.corrMode === 'full' ? 'conditional' : 'full' };
+}
+
+/** Локальный поиск: первый улучшающий сосед, пока улучшения есть. */
+export function climb(data: GameData, s0: Strategy, objective: (s: Strategy) => number, maxIter = 60) {
+  let s = s0, v = objective(s), improved = true, iter = 0;
+  while (improved && iter++ < maxIter) {
+    improved = false;
+    for (const nb of neighbors(data, s)) {
+      const nv = objective(nb);
+      if (nv > v + 1e-9) { s = nb; v = nv; improved = true; break; }
+    }
+  }
+  return { s, v };
 }

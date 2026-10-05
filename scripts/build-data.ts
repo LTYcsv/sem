@@ -12,8 +12,10 @@ import { INDICATORS } from '../engine/src/types.ts';
 import { validateData } from '../engine/src/validate.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const desktopXlsx = join(homedir(), 'Desktop', 'Копия foresight_game_data.xlsx');
+const repoXlsx = join(root, 'docs', 'jury', 'excel', 'Копия foresight_game_data.xlsx');
 const xlsxPath =
-  process.argv[2] ?? process.env.XLSX_PATH ?? join(homedir(), 'Desktop', 'Копия foresight_game_data.xlsx');
+  process.argv[2] ?? process.env.XLSX_PATH ?? (existsSync(desktopXlsx) || !existsSync(repoXlsx) ? desktopXlsx : repoXlsx);
 if (!existsSync(xlsxPath)) {
   console.error(`Не найден файл ${xlsxPath}. Укажите путь: npm run data -- путь.xlsx`);
   process.exit(1);
@@ -335,7 +337,7 @@ if (existsSync(overridesPath)) {
   for (const w of overrides) warnings.push(`Число переопределено в data/rules_overrides.json: ${w} (в xlsx другое значение)`);
   for (const [k, v] of Object.entries(o)) {
     if (k.startsWith('_') || k === 'measures' || k === 'cities') continue;
-    if (!(k in rules) && !['penaltySpill', 'closingNoDebt', 'minFullMeasures', 'fullRefundShare', 'removedEffectShare'].includes(k)) throw new Error(`rules_overrides.json: неизвестный параметр ${k}`);
+    if (!(k in rules) && !['penaltySpill', 'closingNoDebt', 'minFullMeasures', 'fullRefundShare', 'removedEffectShare', 'closingIncome'].includes(k)) throw new Error(`rules_overrides.json: неизвестный параметр ${k}`);
     const before = (rules as any)[k];
     if (before === v) continue;
     (rules as any)[k] = v;

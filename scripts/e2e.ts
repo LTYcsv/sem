@@ -124,8 +124,8 @@ async function main() {
   check(teams[0].state!.city!.situation.length > 50 && teams[0].state!.city!.signals.length === 6, 'карточка города: ситуация и 6 сигналов');
 
   console.log('\n[4] Диагностика, матрица (с проверкой таймера), сценарии');
-  let r = await teams[0].act({ type: 'finish' });
-  check(!r.ok && r.errors!.length > 0, `«Готово» без диагностики не проходит (${r.errors!.length} замечания)`);
+  let r = { ok: true } as Awaited<ReturnType<typeof teams[0]['act']>>;
+  check(teams[0].state!.stepErrors.length === 0 && teams[0].state!.stepWarnings.length > 0, `пустая диагностика не блокирует, а подсказывает (подсказок: ${teams[0].state!.stepWarnings.length})`);
   for (const t of teams) {
     await t.act({ type: 'saveInputs', section: 'diagnostics', data: { trends: ['Старение', 'Автоматизация', 'Удалёнка', ''], drivers: ['Инвестиции', 'Миграция', ''], weakSignals: ['Коворкинг', ''], problems: ['Отток', 'Износ', 'Бюджет'] } });
     r = await t.act({ type: 'finish' });
@@ -144,10 +144,10 @@ async function main() {
   for (const [i, t] of teams.entries()) {
     await t.act({ type: 'saveInputs', section: 'scenarios', data: [0, 1, 2, 3].map((k) => ({ title: `Сценарий ${k + 1}`, text: sentences(k === 3 && i === 0 ? 2 : 3, String(k + 1)) })) });
   }
-  r = await teams[0].act({ type: 'finish' });
-  check(!r.ok && r.errors!.some((e) => /Сценарий 4: нужно минимум 3 предложения \(сейчас 2\)/.test(e)), 'сервер отклоняет сценарий из 2 предложений');
-  await teams[0].act({ type: 'saveInputs', section: 'scenarios', data: [0, 1, 2, 3].map((k) => ({ title: `Сценарий ${k + 1}`, text: sentences(3, String(k + 1)) })) });
+  await teams[0].until((s) => s.stepWarnings.some((e) => /Сценарий 4: рекомендуем 3 предложения \(сейчас 2\)/.test(e)));
+  check(teams[0].state!.stepErrors.length === 0, 'сценарий из 2 предложений — подсказка, а не запрет');
   for (const t of teams) r = await t.act({ type: 'finish' });
+  check(r.ok, 'команда с коротким сценарием переходит дальше');
   await Promise.all(teams.map((t) => t.until((s) => s.team.phase === 'budget')));
   check(teams.every((t) => t.state!.team.phase === 'budget'), 'все на шаге «Бюджет»');
 
@@ -195,7 +195,8 @@ async function main() {
   for (const t of teams) await t.act({ type: 'finish' });
   await Promise.all(teams.map((t) => t.until((s) => s.team.phase === 'corr1')));
   r = await teams[0].act({ type: 'cancelMeasure', code: 'M8' });
-  const m8 = teams[0].state!.portfolio.find((p) => p.code === 'M8')!;
+  // ждём, пока обновлённое состояние дойдёт по сокету
+  const m8 = (await teams[0].until((s) => s.portfolio.find((p) => p.code === 'M8')?.status === 'cancelled').catch(() => teams[0].state!)).portfolio.find((p) => p.code === 'M8')!;
   check(r.ok && m8.status === 'cancelled' && m8.paid === 6 && m8.laterDue === 0, 'снятие условной M8: «Сейчас» 6 у.е. не вернулось, «Позже» больше не числится');
   for (const [i, t] of teams.entries()) {
     const locked = t.state!.portfolio.find((p) => p.locked);
@@ -275,8 +276,7 @@ async function main() {
     if (!r.ok) console.log('    corr2', r.errors);
   }
   await Promise.all(teams.map((t) => t.until((s) => s.team.phase === 'closing')));
-  r = await teams[0].act({ type: 'finish' });
-  check(!r.ok && r.errors!.some((e) => /запускаем или нет/.test(e)), 'закрытие требует решения по каждой условной мере');
+  check(teams[0].state!.stepErrors.length === 0 && teams[0].state!.stepWarnings.some((e) => /запускаем или нет/.test(e)), 'закрытие подсказывает про нерешённые условные меры, но не блокирует');
   for (const t of teams) {
     const pending = t.state!.portfolio.filter((p) => p.status === 'conditional');
     for (const [k, p] of pending.entries()) await t.act({ type: 'closingSet', code: p.code, launch: k % 2 === 0, reason: k % 2 === 0 ? 'Триггер сработал: порог превышен в двух сценариях.' : 'Триггер не сработал, мера остаётся в резерве.' });
@@ -303,8 +303,9 @@ async function main() {
   writeFileSync(pdfPath, pdfBuf);
   if (existsSync('/opt/homebrew/bin/pdftotext') || existsSync('/usr/bin/pdftotext') || existsSync('/usr/local/bin/pdftotext')) {
     const text = execFileSync('pdftotext', ['-enc', 'UTF-8', pdfPath, '-']).toString('utf8');
-    check(text.includes('УЧЕБНЫЕ ДАННЫЕ') && text.includes('Индекс города') && text.includes('Альфа'), 'русский текст в PDF извлекается (pdftotext)');
+    check(text.includes('УЧЕБНЫЕ ДАННЫЕ') && text.includes('Рост города') && text.includes('Индекс города') && text.includes('Альфа'), 'русский текст в PDF извлекается (pdftotext)');
     check(text.includes('Иванов И.'), 'участники команды в PDF');
+    check(text.includes('Стартовая позиция города') && text.includes('Лучшие возможные варианты') && /\d+\s*\/ 10/.test(text), 'в PDF есть стартовая позиция, лучшие варианты и оценка');
   } else console.log('  · pdftotext не найден — проверка извлечения текста пропущена');
   const zip = await fetch(`${BASE}/api/admin/all.zip?t=${adminToken}`);
   const zipBuf = Buffer.from(await zip.arrayBuffer());

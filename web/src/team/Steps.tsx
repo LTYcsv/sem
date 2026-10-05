@@ -20,11 +20,12 @@ export function FinishBar({ v, act, toast, flush, label = 'Готово — к �
   return (
     <div className="card" style={{ marginTop: 18 }}>
       <Errors list={v.stepErrors} />
+      <Errors list={v.stepWarnings} title="Не заполнено (можно перейти и так):" tone="info" />
       <div className="spread">
         <span className="muted small">{note ?? 'Когда время шага закончится, сервер сам переведёт команду дальше с тем, что введено.'}</span>
         <button className="btn primary big" disabled={busy || v.stepErrors.length > 0} onClick={() => setAsk(true)}>{label}</button>
       </div>
-      {ask && <Confirm text={<><b>Перейти к следующему шагу?</b><p className="muted">Вернуться к этому шагу будет нельзя.</p></>} yes="Перейти" onYes={go} onNo={() => setAsk(false)} />}
+      {ask && <Confirm text={<><b>Перейти к следующему шагу?</b><p className="muted">Вернуться к этому шагу будет нельзя.{v.stepWarnings.length > 0 && ` Не заполнено пунктов: ${v.stepWarnings.length}.`}</p></>} yes="Перейти" onYes={go} onNo={() => setAsk(false)} />}
     </div>
   );
 }
@@ -143,7 +144,7 @@ export function ScenariosStep(p: StepProps) {
     <div className="wrap">
       <div className="card">
         <div className="spread"><h2 style={{ margin: 0 }}>Четыре сценария будущего</h2><SaveStatus st={st} /></div>
-        <p className="muted">Каждый сценарий — пересечение полюсов. Дайте яркое название и опишите минимум в <b>3 предложениях</b>: что происходит с жителями, бизнесом и властью.</p>
+        <p className="muted">Каждый сценарий — пересечение полюсов. Дайте яркое название и опишите в <b>2–3 предложениях</b>: что происходит с жителями, бизнесом и властью.</p>
       </div>
       <MatrixGrid axes={axes} render={(i) => {
         const n = countSentences(s[i].text);
