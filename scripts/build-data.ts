@@ -12,8 +12,10 @@ import { INDICATORS } from '../engine/src/types.ts';
 import { validateData } from '../engine/src/validate.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const desktopXlsx = join(homedir(), 'Desktop', 'Копия foresight_game_data.xlsx');
+const repoXlsx = join(root, 'docs', 'jury', 'excel', 'Копия foresight_game_data.xlsx');
 const xlsxPath =
-  process.argv[2] ?? process.env.XLSX_PATH ?? join(homedir(), 'Desktop', 'Копия foresight_game_data.xlsx');
+  process.argv[2] ?? process.env.XLSX_PATH ?? (existsSync(desktopXlsx) || !existsSync(repoXlsx) ? desktopXlsx : repoXlsx);
 if (!existsSync(xlsxPath)) {
   console.error(`Не найден файл ${xlsxPath}. Укажите путь: npm run data -- путь.xlsx`);
   process.exit(1);

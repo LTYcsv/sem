@@ -27,7 +27,7 @@ npm start              # сборка интерфейса + запуск сер
 
 | Команда | Что делает |
 |---|---|
-| `npm run data` | пересобирает `data/game_data.json` из `~/Desktop/Копия foresight_game_data.xlsx` (или `npm run data -- путь.xlsx`) и пересчитывает эталоны |
+| `npm run data` | пересобирает `data/game_data.json` из `~/Desktop/Копия foresight_game_data.xlsx`, а если его нет — из копии в репозитории `docs/jury/excel/` (или `npm run data -- путь.xlsx`), и пересчитывает эталоны |
 | `npm run benchmarks` | эталоны для PDF: лучшие варианты и оценка для каждого города и пары джокеров (≈ 30 с) → `data/benchmarks.json`; заодно обновляет таблицы в `docs/jury/` |
 | `npm run jury` | только обновить таблицы оценок в `docs/jury/` |
 | `npm start` | собирает интерфейс и запускает сервер |
